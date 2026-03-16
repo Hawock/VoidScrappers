@@ -1,0 +1,155 @@
+{
+  "ver": "1.0.8",
+  "importer": "sprite-atlas",
+  "imported": true,
+  "uuid": "e129032a-591d-40aa-a45c-9bdb5b551e63",
+  "files": [
+    ".json"
+  ],
+  "subMetas": {
+    "cb6c7": {
+      "importer": "sprite-frame",
+      "uuid": "e129032a-591d-40aa-a45c-9bdb5b551e63@cb6c7",
+      "displayName": "",
+      "id": "cb6c7",
+      "name": "End_turn_button_c",
+      "userData": {
+        "trimThreshold": 1,
+        "rotated": false,
+        "offsetX": 0,
+        "offsetY": 0,
+        "trimX": 0,
+        "trimY": 0,
+        "width": 538,
+        "height": 310,
+        "rawWidth": 538,
+        "rawHeight": 310,
+        "borderTop": 0,
+        "borderBottom": 0,
+        "borderLeft": 0,
+        "borderRight": 0,
+        "packable": true,
+        "pixelsToUnit": 100,
+        "pivotX": 0.5,
+        "pivotY": 0.5,
+        "meshType": 0,
+        "vertices": {
+          "rawPosition": [],
+          "indexes": [],
+          "uv": [],
+          "nuv": [],
+          "minPos": [],
+          "maxPos": []
+        },
+        "isUuid": true,
+        "imageUuidOrDatabaseUri": "727057ed-739c-4216-bd3c-7c9ea016c367@6c48a",
+        "atlasUuid": "e129032a-591d-40aa-a45c-9bdb5b551e63",
+        "trimType": "auto"
+      },
+      "ver": "1.0.12",
+      "imported": true,
+      "files": [
+        ".json"
+      ],
+      "subMetas": {}
+    },
+    "c6d0a": {
+      "importer": "sprite-frame",
+      "uuid": "e129032a-591d-40aa-a45c-9bdb5b551e63@c6d0a",
+      "displayName": "",
+      "id": "c6d0a",
+      "name": "End_turn_button_o",
+      "userData": {
+        "trimThreshold": 1,
+        "rotated": false,
+        "offsetX": 0,
+        "offsetY": 0,
+        "trimX": 538,
+        "trimY": 0,
+        "width": 538,
+        "height": 310,
+        "rawWidth": 538,
+        "rawHeight": 310,
+        "borderTop": 0,
+        "borderBottom": 0,
+        "borderLeft": 0,
+        "borderRight": 0,
+        "packable": true,
+        "pixelsToUnit": 100,
+        "pivotX": 0.5,
+        "pivotY": 0.5,
+        "meshType": 0,
+        "vertices": {
+          "rawPosition": [],
+          "indexes": [],
+          "uv": [],
+          "nuv": [],
+          "minPos": [],
+          "maxPos": []
+        },
+        "isUuid": true,
+        "imageUuidOrDatabaseUri": "727057ed-739c-4216-bd3c-7c9ea016c367@6c48a",
+        "atlasUuid": "e129032a-591d-40aa-a45c-9bdb5b551e63",
+        "trimType": "auto"
+      },
+      "ver": "1.0.12",
+      "imported": true,
+      "files": [
+        ".json"
+      ],
+      "subMetas": {}
+    },
+    "87eea": {
+      "importer": "sprite-frame",
+      "uuid": "e129032a-591d-40aa-a45c-9bdb5b551e63@87eea",
+      "displayName": "",
+      "id": "87eea",
+      "name": "End_turn_button_s",
+      "userData": {
+        "trimThreshold": 1,
+        "rotated": false,
+        "offsetX": 0,
+        "offsetY": 0,
+        "trimX": 1076,
+        "trimY": 0,
+        "width": 538,
+        "height": 310,
+        "rawWidth": 538,
+        "rawHeight": 310,
+        "borderTop": 0,
+        "borderBottom": 0,
+        "borderLeft": 0,
+        "borderRight": 0,
+        "packable": true,
+        "pixelsToUnit": 100,
+        "pivotX": 0.5,
+        "pivotY": 0.5,
+        "meshType": 0,
+        "vertices": {
+          "rawPosition": [],
+          "indexes": [],
+          "uv": [],
+          "nuv": [],
+          "minPos": [],
+          "maxPos": []
+        },
+        "isUuid": true,
+        "imageUuidOrDatabaseUri": "727057ed-739c-4216-bd3c-7c9ea016c367@6c48a",
+        "atlasUuid": "e129032a-591d-40aa-a45c-9bdb5b551e63",
+        "trimType": "auto"
+      },
+      "ver": "1.0.12",
+      "imported": true,
+      "files": [
+        ".json"
+      ],
+      "subMetas": {}
+    }
+  },
+  "userData": {
+    "atlasTextureName": "endTurnButton.png",
+    "format": 3,
+    "uuid": "e129032a-591d-40aa-a45c-9bdb5b551e63",
+    "textureUuid": "727057ed-739c-4216-bd3c-7c9ea016c367@6c48a"
+  }
+}

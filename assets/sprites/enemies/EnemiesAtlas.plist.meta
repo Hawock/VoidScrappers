@@ -1,0 +1,109 @@
+{
+  "ver": "1.0.8",
+  "importer": "sprite-atlas",
+  "imported": true,
+  "uuid": "2a56f46e-4815-48e4-89ab-f6989c6c2d84",
+  "files": [
+    ".json"
+  ],
+  "subMetas": {
+    "6b2ed": {
+      "importer": "sprite-frame",
+      "uuid": "2a56f46e-4815-48e4-89ab-f6989c6c2d84@6b2ed",
+      "displayName": "",
+      "id": "6b2ed",
+      "name": "dron-x01",
+      "userData": {
+        "trimThreshold": 1,
+        "rotated": false,
+        "offsetX": 0,
+        "offsetY": 0,
+        "trimX": 0,
+        "trimY": 0,
+        "width": 300,
+        "height": 136,
+        "rawWidth": 300,
+        "rawHeight": 136,
+        "borderTop": 0,
+        "borderBottom": 0,
+        "borderLeft": 0,
+        "borderRight": 0,
+        "packable": true,
+        "pixelsToUnit": 100,
+        "pivotX": 0.5,
+        "pivotY": 0.5,
+        "meshType": 0,
+        "vertices": {
+          "rawPosition": [],
+          "indexes": [],
+          "uv": [],
+          "nuv": [],
+          "minPos": [],
+          "maxPos": []
+        },
+        "isUuid": true,
+        "imageUuidOrDatabaseUri": "496e2b06-8b4f-49cf-a9c1-48eb7cf036dc@6c48a",
+        "atlasUuid": "2a56f46e-4815-48e4-89ab-f6989c6c2d84",
+        "trimType": "auto"
+      },
+      "ver": "1.0.12",
+      "imported": true,
+      "files": [
+        ".json"
+      ],
+      "subMetas": {}
+    },
+    "201de": {
+      "importer": "sprite-frame",
+      "uuid": "2a56f46e-4815-48e4-89ab-f6989c6c2d84@201de",
+      "displayName": "",
+      "id": "201de",
+      "name": "dron-x02",
+      "userData": {
+        "trimThreshold": 1,
+        "rotated": false,
+        "offsetX": 0,
+        "offsetY": 0,
+        "trimX": 300,
+        "trimY": 0,
+        "width": 300,
+        "height": 136,
+        "rawWidth": 300,
+        "rawHeight": 136,
+        "borderTop": 0,
+        "borderBottom": 0,
+        "borderLeft": 0,
+        "borderRight": 0,
+        "packable": true,
+        "pixelsToUnit": 100,
+        "pivotX": 0.5,
+        "pivotY": 0.5,
+        "meshType": 0,
+        "vertices": {
+          "rawPosition": [],
+          "indexes": [],
+          "uv": [],
+          "nuv": [],
+          "minPos": [],
+          "maxPos": []
+        },
+        "isUuid": true,
+        "imageUuidOrDatabaseUri": "496e2b06-8b4f-49cf-a9c1-48eb7cf036dc@6c48a",
+        "atlasUuid": "2a56f46e-4815-48e4-89ab-f6989c6c2d84",
+        "trimType": "auto"
+      },
+      "ver": "1.0.12",
+      "imported": true,
+      "files": [
+        ".json"
+      ],
+      "subMetas": {}
+    }
+  },
+  "userData": {
+    "atlasTextureName": "EnemiesAtlas.png",
+    "format": 3,
+    "uuid": "2a56f46e-4815-48e4-89ab-f6989c6c2d84",
+    "textureUuid": "496e2b06-8b4f-49cf-a9c1-48eb7cf036dc@6c48a"
+  }
+}

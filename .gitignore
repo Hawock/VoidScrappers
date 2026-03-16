@@ -1,0 +1,15 @@
+# Cocos Creator
+/library/
+/temp/
+/local/
+/profiles/
+/build/
+/native/
+
+# NodeJS
+node_modules/
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
