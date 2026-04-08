@@ -1,5 +1,5 @@
 import { _decorator, Component, Label, Node } from 'cc';
-import { BATTLE_EVENT, battleBus } from '../event-bus/BatleBus';
+import { BATTLE_EVENT, battleBus } from '../../shared/event-bus/BatleBus';
 const { ccclass, property } = _decorator;
 
 @ccclass('EnergyIndicator')

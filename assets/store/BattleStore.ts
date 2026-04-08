@@ -1,8 +1,8 @@
 import { Enemy, Player } from "../core";
 import { Protocol } from "../core/classes/Protocol";
 import { IBattleStatePacket } from "../core/interfaces/battle/IBattleStatePacket";
-import { PinaColada } from "../infra/PinaColada";
-import { ref } from "../infra/reactivity";
+import { PinaColada } from "../shared/infra/PinaColada";
+import { ref } from "../shared/infra/reactivity";
 
 export enum BATTLE_PHASE {
     START_BATTLE = 'start_battle', // Анимации появления, загрузка
@@ -29,6 +29,8 @@ export const useBattleStore = () => {
         const isDataReady = ref<boolean>(false); 
         const turnEndedPlayers = ref<Player[]>([]);
 
+        const currentPhase = ref<BATTLE_PHASE>(BATTLE_PHASE.PLAYERS_ACT);
+        const selectedProtocol = ref<Protocol | null>(null);
         // --- MUTATIONS ---
         const setBattleState = (packet: IBattleStatePacket) => {
             // Мапим игроков и врагов
@@ -68,6 +70,8 @@ export const useBattleStore = () => {
             exhausted, 
             isDataReady, 
             turnEndedPlayers,
+            currentPhase,
+            selectedProtocol,
             toggleEndTurn,
             setBattleState
         };

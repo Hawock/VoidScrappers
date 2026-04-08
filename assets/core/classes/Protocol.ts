@@ -1,27 +1,30 @@
-import { PROTOCOL_TYPE, TARGET_TYPE } from "../enums";
+import { PROTOCOL_TYPE } from "../enums";
+import { ITargetConfig, TARGET_TYPE } from "../enums/BattleTypes";
 import { IProtocol } from "../interfaces";
+import { IEffect } from "../interfaces/battle/IEffect";
 
 export class Protocol {
     id: string;
-    uid: number;
+    uid: number; // Уникальный ID конкретной карты в руке/колоде
     name: string;
     module_id: string;
-    targetType: TARGET_TYPE;
-    maxTargets: 0;
+    targetConfig: ITargetConfig;
+    effects: IEffect[];
     type: PROTOCOL_TYPE;
     cost: number;
     description: string;
     isPlayable: boolean;
 
-    constructor(protocol: IProtocol, uid: number) {
-        this.id = protocol.id;
+    constructor(data: IProtocol, uid: number) {
+        this.id = data.id;
         this.uid = uid;
-        this.name = protocol.name;
-        this.module_id = protocol.module_id;
-        this.targetType = protocol.targetType;
-        this.type = protocol.type;
-        this.cost = protocol.cost;
-        this.description = protocol.description;
-        this.isPlayable = protocol.isPlayable;
+        this.name = data.name;
+        this.module_id = data.module_id;
+        this.targetConfig = data.targetConfig;
+        this.effects = data.effects;
+        this.type = data.type;
+        this.cost = data.cost;
+        this.description = data.description;
+        this.isPlayable = data.isPlayable;
     }
 }

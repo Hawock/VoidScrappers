@@ -8,7 +8,7 @@ export enum ENEMY_INTENT {
 
 export interface IEnemyAction {
     intent: ENEMY_INTENT;
-    value: number;
+    value?: number;
     description: string;
     // Здесь в будущем можно добавить targetType: 'SELF' | 'PLAYER' | 'ALL_PLAYERS'
 }
@@ -29,10 +29,10 @@ export const ENEMY_DATABASE: Record<string, IEnemyDefinition> = {
         id: "drone_guardian",
         name: "Дрон-Гвардеец",
         maxHp: 40,
-        rank: 'LEADER', // Ранг оставим для будущего, но без group_id он не сработает на побег
+        rank: 'LEADER', 
         spriteFrame: "dron-x02", 
         pattern: [
-            [{ intent: ENEMY_INTENT.DEBUFF, value: 1, description: "Снитяе щита" }],
+            [{ intent: ENEMY_INTENT.DEBUFF, description: "Снитяе щита" }],
             [{ intent: ENEMY_INTENT.ATTACK, value: 8, description: "Наносит 8 ед. урона" }]
         ]
     },

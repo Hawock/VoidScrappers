@@ -4,6 +4,6 @@ import { IUnit } from "./iUnit";
 export interface IPlayer extends IUnit{
     isMyPlayer: boolean;
     currentEnergy: number;
-    maxEnergy: number
+    energy: number
     currentSpaceShip: SPACE_SHIPS;
 }

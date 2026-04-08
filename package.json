@@ -3,5 +3,9 @@
   "uuid": "5308a159-6154-431b-b477-6b28b4cf6b4e",
   "creator": {
     "version": "3.8.7"
+  },
+  "dependencies": {
+    "axios": "^1.14.0",
+    "colyseus.js": "^0.16.22"
   }
 }

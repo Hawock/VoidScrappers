@@ -1,5 +1,5 @@
 // BattleService.ts
-import { Enemy } from "../classes";
+import { Enemy, Player } from "../classes";
 import { ENEMY_DATABASE } from "../data/EnemyDefinitions";
 import { SPACE_SHIPS } from "../enums";
 import { getRaidProtocols } from "../enums/SpaceShips.enum";
@@ -24,7 +24,7 @@ export class BattleService {
                 currentHp: 100,
                 maxHp: 100,
                 currentEnergy: 3,
-                maxEnergy: 3,
+                energy: 3,
                 shield: 0,
                 isMyPlayer: true,
                 currentSpaceShip: SPACE_SHIPS.INTERCEPTOR
@@ -65,7 +65,7 @@ export class BattleService {
 
     private static createEnemyFromDb(id: string, uid: number) {
         const config = ENEMY_DATABASE[id];
-        return {
+        return new Enemy({
             id: config.id,
             uid: uid,
             name: config.name,
@@ -75,6 +75,6 @@ export class BattleService {
             spriteFrame: config.spriteFrame,
             currentPatternIndex: 0,
             nextActions: config.pattern[0]
-        };
+        });
     }
 }

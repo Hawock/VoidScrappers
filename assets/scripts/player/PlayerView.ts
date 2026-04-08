@@ -1,6 +1,7 @@
 import { _decorator, Component, Label, Node, ProgressBar, Sprite, SpriteAtlas } from 'cc';
 import { Player, SPACE_SHIP_BASE_STATS } from '../../core';
 import { useBattleStore } from '../../store/BattleStore'; // Импортируем наш стор
+import { BATTLE_EVENT, battleBus } from '../../shared/event-bus/BatleBus';
 
 const { ccclass, property } = _decorator;
 
@@ -17,10 +18,20 @@ export class PlayerView extends Component {
     public uid: number = 0;
     private _player: Player = null;
 
+    onEnable() {
+        this.node.on(Node.EventType.TOUCH_END, this.onPointerUp, this);
+    }
+
+    private onPointerUp() {
+        // Просто кидаем наш Unit в шину. 
+        battleBus.emit(BATTLE_EVENT.UNIT_CLICKED, this._player); 
+    }
+
     initPlayer(player: Player) {
         this._player = player;
         this.uid = player.uid;
         // 1. Устанавливаем имя и картинку корабля (теперь shipType!)
+        console.log("PLAYER:", player);
         this.playerNameLabel.string = player.name;
         this.playerSprite.spriteFrame = this.playerAtlas.getSpriteFrame(player.shipType);
 

@@ -1,4 +1,4 @@
-import { BATTLE_EVENT, battleBus } from "../../scripts/event-bus/BatleBus";
+import { BATTLE_EVENT, battleBus } from "../../shared/event-bus/BatleBus";
 import { IUnit } from "../interfaces/battle/iUnit";
 
 export class Unit {

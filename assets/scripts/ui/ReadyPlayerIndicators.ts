@@ -1,5 +1,5 @@
 import { _decorator, Component, Prefab, instantiate, Node } from 'cc';
-import { BATTLE_EVENT, battleBus } from '../event-bus/BatleBus';
+import { BATTLE_EVENT, battleBus } from '../../shared/event-bus/BatleBus';
 import { ShipIcon } from './ShipIcon';
 import { Player } from '../../core';
 

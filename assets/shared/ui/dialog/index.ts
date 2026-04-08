@@ -1,0 +1,1 @@
+export { useDialogs } from './model/dialog.store';

@@ -1,13 +1,15 @@
 // BattleLogicProcessor.ts
-import { BATTLE_EVENT, battleBus } from '../../scripts/event-bus/BatleBus';
+import { BATTLE_EVENT, battleBus } from '../../shared/event-bus/BatleBus';
 import { useBattleStore } from '../../store/BattleStore';
+import { Protocol } from '../classes/Protocol';
 import { ENEMY_INTENT } from '../data/EnemyDefinitions';
+import { ITargetConfig, TARGET_SELECTION, TARGET_TYPE } from '../enums/BattleTypes';
 import { BattleService } from './BattleService';
 
 export class BattleLogicProcessor {
     private _store = useBattleStore();
 
-    constructor(private manager: any) {} 
+    constructor(private manager: any) { }
 
     /**
      * Добор протоколов с проверкой пустой колоды
@@ -36,6 +38,33 @@ export class BattleLogicProcessor {
         }
     }
 
+    public executeProtocol(protocol: Protocol, initiator: any, manualTargets: any[] = []) {
+        // 1. Сначала определяем, по кому вообще бьет этот протокол
+        const finalTargets = this.resolveTargets(protocol.targetConfig, initiator, manualTargets);
+
+        // 2. Проходим по эффектам
+        protocol.effects.forEach(effect => {
+            // Здесь важный момент: 
+            // Некоторые эффекты всегда бьют по целям протокола (урон), 
+            // а некоторые могут быть только на себя (энергия).
+
+            // Давай договоримся: если в эффекте не указано иное, он бьет по finalTargets
+            this.applyEffect(effect, finalTargets, initiator);
+        });
+    }
+
+   private resolveTargets(config: ITargetConfig, initiator: any, manualTargets: any[]): any[] {
+        const { type, selection, count } = config;
+
+        // 1. Если в конфиге указано SELF — сразу возвращаем только инициатора
+        if (type === TARGET_TYPE.SELF) {
+            return [initiator];
+        }
+
+        // 2. Для остальных случаев (враги/союзники) нам понадобится логика выбора,
+        // которую мы напишем следующим шагом.
+        return []; 
+    }
     /**
      * Логика фазы врага
      */
@@ -71,9 +100,9 @@ export class BattleLogicProcessor {
         }
     }
 
-    private applyEffect(source: any, action: any) {
-        const player = this._store.players.value[0]; 
-        
+    private applyEffect(source: any, action: any, initiator?: any) {
+        const player = this._store.players.value[0];
+
         switch (action.intent) {
             case ENEMY_INTENT.ATTACK:
                 player.currentHp -= action.value;

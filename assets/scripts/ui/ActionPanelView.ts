@@ -1,6 +1,6 @@
 import { _decorator, Component, Prefab, instantiate } from 'cc';
 import { useBattleStore } from '../../store/BattleStore';
-import { BATTLE_EVENT, battleBus } from '../event-bus/BatleBus';
+import { BATTLE_EVENT, battleBus } from '../../shared/event-bus/BatleBus';
 import { ProtocolItem } from '../battle/ProtocolItem';
 
 

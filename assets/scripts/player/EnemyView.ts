@@ -1,7 +1,7 @@
 import { _decorator, Component, instantiate, Label, Node, Prefab, ProgressBar, Sprite, SpriteAtlas } from 'cc';
 import { Enemy } from '../../core';
 import { IntentIcon } from '../ui/IntentIcon';
-import { BATTLE_EVENT, battleBus } from '../event-bus/BatleBus';
+import { BATTLE_EVENT, battleBus } from '../../shared/event-bus/BatleBus';
 const { ccclass, property } = _decorator;
 
 @ccclass('EnemyView')
@@ -32,11 +32,19 @@ export class EnemyView extends Component {
     onEnable() {
         // Подписываемся на событие обновления любого юнита
         battleBus.on(BATTLE_EVENT.UNIT_UPDATED, this.onUnitUpdated, this);
+        this.node.on(Node.EventType.TOUCH_END, this.onClick, this);
     }
 
     onDisable() {
         // Обязательно отписываемся, чтобы не было утечек памяти
         battleBus.off(BATTLE_EVENT.UNIT_UPDATED, this.onUnitUpdated, this);
+        this.node.off(Node.EventType.TOUCH_END, this.onClick, this);
+    }
+
+    private onClick() {
+        console.log(`[View] Клик по юниту: ${this._enemy.name}`);
+        // Важно: передаем именно объект данных (Unit), а не саму ноду
+        battleBus.emit(BATTLE_EVENT.UNIT_CLICKED, this._enemy);
     }
 
     private onUnitUpdated(payload: { uid: number }) {

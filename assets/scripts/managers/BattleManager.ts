@@ -1,12 +1,14 @@
 import { _decorator, Component, Node, Prefab, instantiate } from 'cc';
 import { PlayerView } from '../player/PlayerView';
 import { useBattleStore } from '../../store/BattleStore';
-import { BATTLE_EVENT, battleBus } from '../event-bus/BatleBus';
+import { BATTLE_EVENT, battleBus } from '../../shared/event-bus/BatleBus';
 import { Protocol } from '../../core/classes/Protocol';
 import { Player } from '../../core';
 import { BattleLogicProcessor } from '../../core/battle/BattleLogicProcessor';
 import { BattleService } from '../../core/battle/BattleService';
 import { EnemyView } from '../player/EnemyView';
+import { Unit } from '../../core/classes/Unit';
+import { TARGET_SELECTION } from '../../core/enums/BattleTypes';
 
 const { ccclass, property } = _decorator;
 
@@ -27,10 +29,12 @@ export class BattleManager extends Component {
     onLoad() {
         this._processor = new BattleLogicProcessor(this);
         battleBus.on(BATTLE_EVENT.TRY_PLAY_PROTOCOL, this.handlePlayProtocol, this);
+        battleBus.on(BATTLE_EVENT.UNIT_CLICKED, this.handleUnitClick, this);
     }
 
     protected onDisable(): void {
         battleBus.off(BATTLE_EVENT.TRY_PLAY_PROTOCOL, this.handlePlayProtocol, this);
+        battleBus.off(BATTLE_EVENT.UNIT_CLICKED, this.handleUnitClick, this);
     }
 
     async start() {
@@ -50,7 +54,6 @@ export class BattleManager extends Component {
     private initVisuals() {
         this.spawnPlayers();
         this.spawnEnemies(); 
-        
         battleBus.emit(BATTLE_EVENT.BATTLE_STARTED);
         battleBus.emit(BATTLE_EVENT.HAND_UPDATED, this._store.hand.value);
     }
@@ -109,11 +112,62 @@ export class BattleManager extends Component {
         const myPlayer = this._store.players.value.find(p => p.isMyPlayer);
         if (!myPlayer || myPlayer.currentEnergy < protocol.cost) return;
 
+        // 1. Сохраняем протокол в стор
+        this._store.selectedProtocol.value = protocol;
+
+        // 2. Проверяем конфиг таргетинга
+        if (protocol.targetConfig.selection === TARGET_SELECTION.MANUAL) {
+            // Переходим в режим выбора цели
+            this.enterSelectionMode();
+        } else {
+            // Если цель AUTO или SELF — разыгрываем сразу (пустой массив целей)
+            this.confirmProtocolPlay([]);
+        }
+    }
+
+    private enterSelectionMode() {
+        // Здесь мы визуально меняем состояние
+        // 1. Меняем курсор (можно через добавление класса на Canvas или Node)
+        // 2. Блокируем кнопку конца хода (она должна смотреть на currentPhase)
+        console.log("🎯 Режим выбора целей активирован");
+    }
+
+    public cancelSelection() {
+        this._store.selectedProtocol.value = null;
+        console.log("❌ Выбор отменен");
+    }
+
+    private async confirmProtocolPlay(targets: Unit[]) {
+        const protocol = this._store.selectedProtocol.value;
+        const myPlayer = this._store.players.value.find(p => p.isMyPlayer);
+        
+        if (!protocol || !myPlayer) return;
+
+        // 1. Отправляем в процессор на выполнение
+        // Процессор сам решит, какие эффекты куда летят
+        this._processor.executeProtocol(protocol, myPlayer, targets);
+
+        // 2. Списываем ресурсы (уже после подтверждения!)
         myPlayer.currentEnergy -= protocol.cost;
         this._store.hand.value = this._store.hand.value.filter(p => p.uid !== protocol.uid);
         this._store.discard.value.push(protocol);
 
+        // 3. Сброс состояния
+        this._store.selectedProtocol.value = null;
         this.syncPlayerState(myPlayer);
+    }
+
+    private handleUnitClick(target: Unit) {
+        // 1. Проверяем, выбрана ли карта в сторе
+        const protocol = this._store.selectedProtocol.value;
+        if (!protocol) {
+            // Если карта не выбрана, можно просто показать инфо о юните (по желанию)
+            return;
+        }
+
+        // 2. Если карта выбрана и мы в фазе действий игрока
+        // (Пока упрощаем: считаем, что любая карта требует 1 цель)
+        this.confirmProtocolPlay([target]);
     }
 
     public async toggleEndTurn() {

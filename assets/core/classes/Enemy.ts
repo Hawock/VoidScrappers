@@ -1,14 +1,10 @@
 import { IEnemy } from "../interfaces/battle/IEnemy";
 import { Unit } from "./Unit";
-import { ENEMY_DATABASE, ENEMY_INTENT } from "../data/EnemyDefinitions";
+import { ENEMY_DATABASE, ENEMY_INTENT, IEnemyAction } from "../data/EnemyDefinitions";
 
 export class Enemy extends Unit {
     public currentPatternIndex?: number = 0;
-    public nextActions:{
-        intent: ENEMY_INTENT;
-        value: number;
-        description: string;
-    }[] = [];
+    public nextActions:IEnemyAction[] = [];
     public spriteFrame: string = '';
 
     constructor(enemy: IEnemy) {

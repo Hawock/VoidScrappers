@@ -19,6 +19,7 @@ export class Player extends Unit {
 
     constructor(player: IPlayer) {
         super(player);
+        console.log("Creating Player:", player);
         this.shipType = player.currentSpaceShip;
         this.currentEnergy = this.energy;
         this.isMyPlayer = player.isMyPlayer;
