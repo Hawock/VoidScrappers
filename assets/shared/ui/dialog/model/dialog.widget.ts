@@ -19,15 +19,23 @@ export class DialogWidget extends Component {
         director.addPersistRootNode(this.node);
     }
 
-    onEnable() {
+    protected start(): void {
         const store = useDialogs();
         store.events.on('add-dialog', this.onAddDialog, this);
         store.events.on('remove-dialog', this.onRemoveDialog, this);
     }
 
+    onEnable() {
+        
+    }
+
     onDisable() {
         // onDisable может сработать, если мы вручную выключим ноду, 
         // но при смене сцены она теперь не будет уничтожаться.
+        
+    }
+
+    protected onDestroy(): void {
         const store = useDialogs();
         store.events.off('add-dialog', this.onAddDialog, this);
         store.events.off('remove-dialog', this.onRemoveDialog, this);

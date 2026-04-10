@@ -50,10 +50,10 @@ export class AppDialog extends Component {
         }
 
         // 2. Подписываемся на глобальный крестик "Закрыть"
-        if (this.btnCloseX) {
-            this.btnCloseX.node.off(Button.EventType.CLICK);
-            this.btnCloseX.node.on(Button.EventType.CLICK, this.onCloseXClick, this);
-        }
+        
+        this.btnCloseX.node.off(Button.EventType.CLICK);
+        this.btnCloseX.node.on(Button.EventType.CLICK, this.onCloseXClick, this);
+        
 
         // 3. Разделяем логику отрисовки
         if (config.component) {

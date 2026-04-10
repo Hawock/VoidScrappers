@@ -11,7 +11,11 @@ export class MainMenuController extends Component {
     raidListWidgetPrefab: Prefab = null!;
 
     start() {
-
+        const { showDialog } = useDialogs()
+        showDialog({
+            header: "TECТОВОЕ",
+            text: "Тестовое описание",
+        })
     }
 
     public onStartRaidButtonClick() {
