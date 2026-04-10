@@ -1,8 +1,9 @@
 import { EventTarget } from 'cc';
 
 export class Ref<T> {
-    private _raw: T; // Храним оригинальное значение
-    private _proxy: T; // Храним обертку-прокси
+    private _raw: T;
+    private _proxy: T;
+    private _isPending = false; // 1. Добавляем флаг-предохранитель
     public events: EventTarget = new EventTarget();
 
     constructor(value: T) {
@@ -21,50 +22,39 @@ export class Ref<T> {
         this.trigger();
     }
 
+    // 2. Модернизируем триггер
     public trigger() {
-        this.events.emit('changed', this._proxy);
+        // Если уведомление уже запланировано в очереди — выходим
+        if (this._isPending) return;
+
+        this._isPending = true;
+
+        // 3. Закидываем задачу в очередь микрозадач
+        Promise.resolve().then(() => {
+            this.events.emit('changed', this._proxy);
+            this._isPending = false; // Сбрасываем флаг, когда всё отработало
+        });
     }
 
-    // Та самая магия под капотом Vue 3
     private makeReactive(val: any): any {
-        // Если это примитив (строка, число, boolean) или null — Proxy не нужен
-        if (val === null || typeof val !== 'object') {
-            return val;
-        }
-
+        if (val === null || typeof val !== 'object') return val;
         const self = this;
-
         return new Proxy(val, {
-            // Перехватываем ЧТЕНИЕ свойств
             get(target, prop) {
                 const result = target[prop];
-                
-                // Ленивая глубокая реактивность (Deep Reactivity)
-                // Если мы обращаемся к вложенному объекту/массиву, мы его тоже оборачиваем в Proxy на лету!
                 if (typeof result === 'object' && result !== null) {
                     return self.makeReactive(result);
                 }
-                
-                // Если обращаемся к функциям массива (push, splice и тд), привязываем контекст
                 if (typeof result === 'function') {
                     return result.bind(target);
                 }
-                
                 return result;
             },
-
-            // Перехватываем ИЗМЕНЕНИЕ свойств
             set(target, prop, newValue) {
-                // Защита от лишних рендеров, если значение не поменялось
-                if (target[prop] === newValue) return true; 
-
-                // Меняем значение в оригинальном объекте
+                if (target[prop] === newValue) return true;
                 target[prop] = newValue;
-                
-                // 🔥 ТРИГГЕРИМ СОБЫТИЕ!
-                self.trigger();
-                
-                return true; // Proxy требует возвращать true при успешной записи
+                self.trigger(); // Тут всё остается так же
+                return true;
             }
         });
     }

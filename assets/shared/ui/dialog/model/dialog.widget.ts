@@ -10,7 +10,7 @@ const { ccclass, property } = _decorator;
 export class DialogWidget extends Component {
     @property(Prefab) 
     dialogPrefab: Prefab = null!;
-
+    private dialogStore = useDialogs();
     private dialogNodes: Map<number, Node> = new Map();
 
     onLoad() {
@@ -20,9 +20,10 @@ export class DialogWidget extends Component {
     }
 
     protected start(): void {
+        console.log("👂 [DialogWidget] Подписался на события!");
         const store = useDialogs();
-        store.events.on('add-dialog', this.onAddDialog, this);
-        store.events.on('remove-dialog', this.onRemoveDialog, this);
+        this.dialogStore.events.on('add-dialog', this.onAddDialog, this);
+        this.dialogStore.events.on('remove-dialog', this.onRemoveDialog, this);
     }
 
     onEnable() {
@@ -37,13 +38,12 @@ export class DialogWidget extends Component {
 
     protected onDestroy(): void {
         const store = useDialogs();
-        store.events.off('add-dialog', this.onAddDialog, this);
-        store.events.off('remove-dialog', this.onRemoveDialog, this);
+        this.dialogStore.events.off('add-dialog', this.onAddDialog, this);
+        this.dialogStore.events.off('remove-dialog', this.onRemoveDialog, this);
     }
 
     private onAddDialog(dialogConfig: IDialog) {
         console.log("👂 [DialogWidget] Поймал событие! Пытаюсь создать окно...", dialogConfig);
-        
         const dialogNode = instantiate(this.dialogPrefab);
         
         // --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---

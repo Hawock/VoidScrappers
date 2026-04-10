@@ -8,7 +8,7 @@ import { RaidApi } from "../api/raid.api";
 export const useRaidStore = () => {
     return PinaColada.instance.useStore('raids', () => {
         const isLoading = ref(false);
-
+        const isRaidLoaded = ref(false);
         const raids = ref<RaidItem[]>([]);
 
         function setRaidList (list: RaidItemDto[]) {
@@ -16,11 +16,13 @@ export const useRaidStore = () => {
         }
 
         async function getRaidList () {
+            if(isRaidLoaded.value) return;
             const res =  await ExecutorRequest.exec(() => RaidApi.getRaidList(), {
                 loading: isLoading, 
             })
             if(!res) return false;
             setRaidList(res);
+            isRaidLoaded.value = true;
         }
 
         return { raids, isLoading, setRaidList, getRaidList };

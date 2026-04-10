@@ -1,5 +1,6 @@
 import { _decorator, Component, sys, director, Node, Label } from 'cc';
 import { GuestLoginRequestDto, useProfileStore } from '../../entities/profile';
+import * as cc from 'cc';
 
 const { ccclass, property } = _decorator;
 
@@ -11,6 +12,7 @@ export class Bootstrapper extends Component {
     private profileStore = useProfileStore();
 
     async start() {
+        window['cc'] = cc;
         this.updateStatus("Инициализация системы...");
         await this.initGame();
     }

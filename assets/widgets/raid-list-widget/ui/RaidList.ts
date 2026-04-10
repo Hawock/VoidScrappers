@@ -10,21 +10,21 @@ export class RaidListWidget extends Component {
     @property(Prefab) raidItemPrefab: Prefab = null!; 
     @property(Node) loadingIndicator: Node = null!; // Текст "Загрузка..." или крутилка
 
-    start() {
-        const store = useRaidStore();
+    async start() {
+        const { raids, isLoading, getRaidList } = useRaidStore();
 
         // Подписываемся на стор
-        store.raids.events.on('changed', this.onRaidsChanged, this);
-        store.isLoading.events.on('changed', this.onLoadingChanged, this);
+        raids.events.on('changed', this.onRaidsChanged, this);
+        isLoading.events.on('changed', this.onLoadingChanged, this);
 
         // Инициализируем UI текущим стейтом (вдруг данные уже есть)
-        this.onLoadingChanged(store.isLoading.value);
-        if (store.raids.value.length > 0) {
-            this.onRaidsChanged(store.raids.value);
+        this.onLoadingChanged(isLoading.value);
+        if (raids.value.length > 0) {
+            this.onRaidsChanged(raids.value);
         }
 
         // Просим стор загрузить данные (он сам решит, нужно ли делать API запрос)
-        store.getRaidList();
+        getRaidList();
     }
 
     private onLoadingChanged(isLoading: boolean) {
@@ -35,7 +35,7 @@ export class RaidListWidget extends Component {
 
     private onRaidsChanged(raids: RaidItem[]) {
         this.contentLayout.removeAllChildren();
-
+        console.log("RAIDS:", raids)
         raids.forEach(raid => {
             const itemNode = instantiate(this.raidItemPrefab);
             console.log("INSTANTIATED ITEM NODE:", itemNode)
