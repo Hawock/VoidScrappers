@@ -6,6 +6,7 @@
   "compilerOptions": {
     "target": "ESNext",
     "lib": ["DOM", "DOM.Iterable", "ES2022"],
-    "strict": false
+    "strict": false,
+    "esModuleInterop": true
   }
 }

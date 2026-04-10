@@ -1,6 +1,8 @@
 import { _decorator, Component, director } from 'cc';
-import Colyseus from 'db://colyseus-sdk/colyseus.js';
+
 import { useLobbyStore } from '../shared/store/lobby/lobby.store';
+import Colyseus from 'db://colyseus-sdk/colyseus.js';
+
 
 const { ccclass } = _decorator;
 
@@ -45,6 +47,7 @@ export class ColyseusManager extends Component {
      * Основной вход в лобби
      */
     public async connectToLobby(userData: { id: string, nickname: string }) {
+        console.log("YOYOYO")
         try {
             this.privateRoom = await this.client.joinOrCreate("private", { 
                 userId: userData.id 

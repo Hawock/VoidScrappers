@@ -1,6 +1,6 @@
 import { BaseApiService } from "db://assets/shared/infra/api";
 
-class RaidApiService extends BaseApiService {
+export class RaidApiService extends BaseApiService {
     public getRaidList () {
         return this.api.request.get('/game/raids');
     }
@@ -10,4 +10,3 @@ class RaidApiService extends BaseApiService {
     }
 }
 
-export const RaidApi = new RaidApiService();

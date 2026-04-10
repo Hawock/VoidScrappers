@@ -3,10 +3,12 @@ import { ref } from "db://assets/shared/infra/reactivity"
 import { RaidItem } from "./classess/raidI-tem";
 import { RaidItemDto } from "../api/dto/raid-item.dto";
 import { ExecutorRequest } from "db://assets/shared/infra/api";
-import { RaidApi } from "../api/raid.api";
+import { RaidApiService } from "../api/raid.api";
+
 
 export const useRaidStore = () => {
     return PinaColada.instance.useStore('raids', () => {
+        const raidApi = new RaidApiService();
         const isLoading = ref(false);
         const isRaidLoaded = ref(false);
         const raids = ref<RaidItem[]>([]);
@@ -17,7 +19,7 @@ export const useRaidStore = () => {
 
         async function getRaidList () {
             if(isRaidLoaded.value) return;
-            const res =  await ExecutorRequest.exec(() => RaidApi.getRaidList(), {
+            const res =  await ExecutorRequest.exec(() => raidApi.getRaidList(), {
                 loading: isLoading, 
             })
             if(!res) return false;

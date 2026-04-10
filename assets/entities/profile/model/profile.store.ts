@@ -2,46 +2,54 @@ import { PinaColada } from "db://assets/shared/infra/PinaColada";
 import { ref } from "db://assets/shared/infra/reactivity";
 import { User } from "./classess/User";
 import { ExecutorRequest } from "db://assets/shared/infra/api";
-import { AuthApi } from "../api/auth.api";
 import { GuestLoginRequestDto, PlayerPayloadDto } from "../api/dto/user.dto";
+import { AuthApiService } from "../api/auth.api";
+import { ColyseusManager } from "db://assets/app/ColyseusManager";
+
 
 
 export const useProfileStore = () => {
     return PinaColada.instance.useStore('profile', () => {
+        const authApi = new AuthApiService();
         // --- STATE ---
-        const currentUser = ref<User | null>(null);
+        const user = ref<User | null>(null);
         const token = ref<string>(''); 
         const isAuthorized = ref<boolean>(false);
         const isLoading = ref(false)
 
         // --- ACTIONS ---
         function setProfile (data: {user: PlayerPayloadDto, access_token: string}) {
-            currentUser.value = new User(data.user);
+            user.value = new User(data.user);
             token.value = data.access_token;
             isAuthorized.value = true;
-            console.log(`✅ [ProfileStore] Успешный вход: ${currentUser.value.getDisplayName()}`);
+            console.log(`✅ [ProfileStore] Успешный вход: ${user.value.getDisplayName()}`);
         };
 
         function logout () {
-            currentUser.value = null;
+            user.value = null;
             token.value = '';
             isAuthorized.value = false;
             console.log(`🚪 [ProfileStore] Выполнен выход`);
         };
 
         async function guestLogin (dto: GuestLoginRequestDto) {
-            console.log("РОШЕЛ ЗАПРСО!")
-            const res = await ExecutorRequest.exec(() => AuthApi.guestLogin(dto), {
+            const res = await ExecutorRequest.exec(() => authApi.guestLogin(dto), {
                 loading: isLoading, success_message: "Выполнен вход гостя"
             });
             if (!res) return false
-            console.log("РОШЕЛ ЗАПРСО! РЕЗУЛЬТАТ: ", res)
+            console.log("ПОШЕЛ ЗАПРСО! РЕЗУЛЬТАТ: ", res)
             setProfile(res);
+            if (ColyseusManager.instance) {
+                await ColyseusManager.instance.connectToLobby({
+                    id: user.value.id,
+                    nickname: user.value.nickname
+                });
+            }
             return true
         }
 
         return {
-            currentUser,
+             user,
             token,
             isAuthorized,
             setProfile,
