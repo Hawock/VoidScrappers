@@ -1,210 +1,214 @@
 import { _decorator, Component, director } from 'cc';
-
-import { useLobbyStore } from '../shared/store/lobby/lobby.store';
 import Colyseus from 'db://colyseus-sdk/colyseus.js';
-
+import { useLobbyStore } from '../shared/store/lobby/model/lobby.store';
+import { useDialogs } from '../shared/ui';
 
 const { ccclass } = _decorator;
 
 @ccclass('ColyseusManager')
 export class ColyseusManager extends Component {
     public static instance: ColyseusManager = null!;
+
     private client: Colyseus.Client = null!;
-    private privateRoom: Colyseus.Room = null!;
     private lobbyRoom: Colyseus.Room = null!;
+    private privateRoom: Colyseus.Room = null!;
+
     private isDuplicate: boolean = false;
     private _isReadyResolver: (value: boolean) => void = null!;
+
     public isReady: Promise<boolean> = new Promise((resolve) => {
         this._isReadyResolver = resolve;
     });
 
     onLoad() {
-        // 1. ПРИНУДИТЕЛЬНО В КОРЕНЬ
-        if (this.node.parent !== null) {
-            this.node.setParent(null);
-        }
+        if (this.node.parent !== null) this.node.setParent(null);
 
         if (ColyseusManager.instance && ColyseusManager.instance !== this) {
             this.isDuplicate = true;
             this.node.destroy();
             return;
         }
-        ColyseusManager.instance = this;
 
-        // 2. ЗАПРОС ПЕРСИСТЕНТНОСТИ
+        ColyseusManager.instance = this;
         director.addPersistRootNode(this.node);
 
-        // 3. ПРОВЕРКА (Критично!)
-        if (!director.isPersistRootNode(this.node)) {
-            console.error("❌❌❌ [Lobby] COCOS ОТКЛОНИЛ PERSISTENT! Менеджер умрет при смене сцены!");
-        } else {
-            console.log("💎 [Lobby] Менеджер официально бессмертен.");
-        }
-
+        // Адрес сервера вынеси потом в конфиг
         this.client = new Colyseus.Client("ws://localhost:3000");
     }
+
+    public get sessionId() {
+        return this.lobbyRoom?.sessionId;
+    }
+
     /**
-     * Основной вход в лобби
+     * Основной вход в игру через лобби
      */
-    public async connectToLobby(userData: { id: string, nickname: string }) {
-        console.log("YOYOYO")
+    public async connectToLobby(userData: { id: string, nickname: string, avatar?: string }) {
         try {
-            this.privateRoom = await this.client.joinOrCreate("private", { 
-                userId: userData.id 
-            });
-            console.log("🤫 [Private] Личный канал открыт");
+            // 1. Личный канал (для уведомлений вне комнат)
+            this.privateRoom = await this.client.joinOrCreate("private", { userId: userData.id });
 
-            this.lobbyRoom = await this.client.joinOrCreate("lobby", {
-                partyId: userData.id, // Ключ для фильтрации на сервере
-                ...userData 
-            });
-            console.log("✅ [Lobby] Подключено успешно");
-            // Запускаем синхронизацию данных со Стором
+            // 2. Основное лобби
+            this.lobbyRoom = await this.client.joinOrCreate("lobby", userData);
+
+            console.log("✅ [Colyseus] Подключено к лобби");
+
             this.setupLobbyListeners();
-
-            // --- ОБРАБОТКА СООБЩЕНИЙ ---
-
-            // Приглашение в группу
-            this.lobbyRoom.onMessage("INVITE_RECEIVED", (data) => {
-                console.log(`📩 Пришло приглашение от ${data.fromName}!`);
-                // Здесь будет вызов UI диалога
-            });
-
-            // Команда на запуск рейда (прилетает всем участникам)
-            this.lobbyRoom.onMessage("JOIN_RAID_SESSION", async (data) => {
-                console.log("✈️ Рейд запущен сервером! Переходим...");
-
-                await this.joinRoomByReservation(data);
-                director.loadScene('MapScene');
-            });
+            this.setupLobbyMessages();
 
         } catch (e) {
-            console.error("❌ [Lobby] Ошибка подключения:", e);
+            console.error("❌ [Colyseus] Ошибка подключения:", e);
         }
     }
 
     /**
-     * Настройка синхронизации Colyseus State -> PinaColada Store
+     * Синхронизация стейта сервера со Стором (PinaColada)
      */
     private setupLobbyListeners() {
         const lobbyStore = useLobbyStore();
         const state = this.lobbyRoom.state as any;
 
-        // Защита от пустого стейта (ждем первый пакет)
+        // 1. ГЛАВНЫЕ ВРАТА: Если стейт или игроки еще не созданы — ждем
         if (!state || !state.players) {
-            console.warn("⏳ [Lobby] Ждем синхронизации...");
+            console.warn("⏳ [Lobby] Стейт еще не готов, ждем синхронизации...");
+            // Подписываемся на ПЕРВОЕ изменение, чтобы попробовать снова
             this.lobbyRoom.onStateChange.once(() => this.setupLobbyListeners());
             return;
         }
 
-        const players = state.players;
+        // 2. СИЛОВОЙ МЕТОД (Обновление при любом чихе сервера)
+        this.lobbyRoom.onStateChange((latestState) => {
+            if (!latestState || !latestState.players) return;
 
-        // 1. Слушатель добавления (Синтаксис через РАВНО)
-        players.onAdd = (player: any, sessionId: string) => {
-            console.log(`👤 [Lobby] Игрок зашел: ${sessionId}`);
-            lobbyStore.updatePlayer(sessionId, player.toJSON());
-
-            player.onChange = () => {
+            latestState.players.forEach((player: any, sessionId: string) => {
                 lobbyStore.updatePlayer(sessionId, player.toJSON());
-                lobbyStore.checkAutoStart();
-            };
-        };
+            });
+        });
 
-        // 2. Слушатель удаления
-        players.onRemove = (player: any, sessionId: string) => {
+        // 3. СЛУШАТЕЛИ УДАЛЕНИЯ (Теперь безопасно, так как state.players точно есть)
+        state.players.onRemove = (player: any, sessionId: string) => {
+            console.log(`🚪 [Lobby] Игрок вышел: ${sessionId}`);
             lobbyStore.removePlayer(sessionId);
         };
 
-        // 3. Слушатель рейда
+        // 4. СЛУШАТЕЛЬ РЕЙДА
+        // Проверяем наличие объекта перед тем как вешать listen/onChange
         if (state.selectedRaid) {
+            // Если твоя версия не ест .listen на стейте, используй onChange на самом объекте
             state.selectedRaid.onChange = () => {
-                const raidData = state.selectedRaid.toJSON();
-                if (raidData.id) {
-                    lobbyStore.setRaid(raidData);
-                    lobbyStore.checkAutoStart();
-                }
+                lobbyStore.setRaid(state.selectedRaid.toJSON());
             };
         }
 
-        // 4. Первичная проходка по уже зашедшим
-        players.forEach((player: any, sessionId: string) => {
-            lobbyStore.updatePlayer(sessionId, player.toJSON());
+        // 5. ПЕРВИЧНЫЙ ЗАПУСК
+        state.players.forEach((p: any, sid: string) => {
+            lobbyStore.updatePlayer(sid, p.toJSON());
         });
 
-        // СИГНАЛ ГОТОВНОСТИ: Теперь Бутстраппер может менять сцену
-        console.log("🚀 [Lobby] Стейт синхронизирован. Разрешаем вход.");
+        console.log("✅ [Lobby] Слушатели успешно установлены!");
         if (this._isReadyResolver) this._isReadyResolver(true);
     }
-    /**
-     * Вход в боевую комнату по билету
-     */
-    public async joinRoomByReservation(reservation: any) {
-        try {
-            console.log("🎟️ [Raid] Вход по билету...");
-            const room = await this.client.consumeSeatReservation(reservation);
-            console.log(`⚔️ [Raid] Успешно зашли в комнату: ${room.name}`);
-            return room;
-        } catch (e) {
-            console.error("❌ [Raid] Ошибка входа по билету:", e);
-        }
-    }
 
     /**
-     * Выход из лобби с очисткой
+     * Обработка разовых событий (сообщений)
      */
-    public async leaveLobby() {
-        // Если мы дубликат — уходим молча, не закрывая сокет основного менеджера
-        if (this.isDuplicate) return;
+    private async setupLobbyMessages() {
+        console.log("BEFORE")
+        if (!this.lobbyRoom) return;
+        console.log("AFTER")
 
-        if (this.lobbyRoom) {
-            this.lobbyRoom.removeAllListeners();
-            await this.lobbyRoom.leave();
-            this.lobbyRoom = null!;
-            console.log("🧹 [Lobby] Вышли из лобби (настоящий выход)");
-        }
-    }
+        // Входящий инвайт
+        this.lobbyRoom.onMessage("INVITE_RECEIVED", async (data) => {
+            const confirm = await useDialogs().showDialog({
+                header: "ВЫЗОВ",
+                text: `Пилот ${data.fromName} приглашает в звено. Принимаем?`,
+                isConfirm: true,
+                confirmBtnText: "ПРИНЯТЬ",
+                rejectBtnText: "ОТКЛОНИТЬ"
+            });
 
-    onDestroy() {
-        if (!this.isDuplicate) {
-            // Эта строка покажет в консоли дерево функций, которые привели к смерти
-            console.trace("💀 КТО УБИЛ МЕНЕДЖЕРА?"); 
-            this.leaveLobby();
-        }
+            if (confirm) {
+                this.sendAcceptInvite(data.fromSessionId);
+            } else {
+                this.sendDeclineInvite();
+            }
+        });
+
+        // Отчеты по инвайтам (ошибки/таймауты)
+        this.lobbyRoom.onMessage("INVITE_REPORT", (data: { success: boolean, reason?: string }) => {
+            if (!data.success) {
+                useDialogs().showDialog({
+                    header: "ОТКАЗ",
+                    text: data.reason || "Связь со штабом прервана.",
+                    isConfirm: false
+                });
+            }
+        });
+
+        // Команда на переход в боевую сцену
+        this.lobbyRoom.onMessage("JOIN_RAID_SESSION", async (data) => {
+            const raidRoom = await this.joinRoomByReservation(data);
+            if (raidRoom) {
+                director.loadScene('MapScene');
+            }
+        });
+
+        // Общие ошибки
+        this.lobbyRoom.onMessage("ERROR", (msg) => {
+            useDialogs().showDialog({ header: "ОШИБКА", text: msg, isConfirm: false });
+        });
     }
 
     // --- МЕТОДЫ ОТПРАВКИ (ACTIONS) ---
 
     public sendInvite(targetUserId: string) {
-        if (this.lobbyRoom) {
-            this.lobbyRoom.send("INVITE_FRIEND", { targetId: targetUserId });
-        }
+        this.lobbyRoom?.send("INVITE_FRIEND", { targetId: targetUserId });
     }
 
-    public acceptInvite(inviterSessionId: string) {
-        if (this.lobbyRoom) {
-            this.lobbyRoom.send("ACCEPT_INVITE", { inviterSessionId });
-        }
+    public sendAcceptInvite(inviterSessionId: string) {
+        this.lobbyRoom?.send("ACCEPT_INVITE", { inviterSessionId });
     }
 
-    public selectRaid(raidData: any) {
-        if (this.lobbyRoom) {
-            console.log(`📡 [Lobby] Отправляем выбор рейда: ${raidData.name}`);
-            this.lobbyRoom.send("SELECT_RAID", raidData);
-        }
+    public sendDeclineInvite() {
+        this.lobbyRoom?.send("DECLINE_INVITE");
     }
 
-    public toggleReady() {
-        if (this.lobbyRoom) {
-            this.lobbyRoom.send("TOGGLE_READY");
-        }
+    public sendLeaveParty() {
+        this.lobbyRoom?.send("LEAVE_PARTY");
     }
 
-    /**
-     * Финальный запрос на старт (обычно вызывается автоматически из Стора)
-     */
+    public sendToggleReady() {
+        this.lobbyRoom?.send("TOGGLE_READY");
+    }
+
+    public sendSelectRaid(raidData: any) {
+        this.lobbyRoom?.send("SELECT_RAID", raidData);
+    }
+
     public sendStartRaid(locationId: string) {
-        if (this.lobbyRoom) {
-            this.lobbyRoom.send("START_RAID_FLOW", { locationId });
+        this.lobbyRoom?.send("START_RAID_FLOW", { locationId });
+    }
+
+    // --- СЕРВИСНЫЕ МЕТОДЫ ---
+
+    private async joinRoomByReservation(reservation: any) {
+        try {
+            return await this.client.consumeSeatReservation(reservation);
+        } catch (e) {
+            console.error("❌ [Colyseus] Ошибка входа по билету:", e);
         }
+    }
+
+    public async leaveLobby() {
+        if (this.isDuplicate) return;
+        if (this.lobbyRoom) {
+            this.lobbyRoom.removeAllListeners();
+            await this.lobbyRoom.leave();
+            this.lobbyRoom = null!;
+        }
+    }
+
+    onDestroy() {
+        if (!this.isDuplicate) this.leaveLobby();
     }
 }

@@ -1,5 +1,5 @@
 import { _decorator, Component, Node, Label, Sprite, SpriteFrame } from 'cc';
-import { useLobbyStore } from '../../../store/lobby/lobby.store';
+import { useLobbyStore } from '../../../store/lobby/model/lobby.store';
 
 const { ccclass, property } = _decorator;
 
