@@ -25,13 +25,9 @@ export class RaidItemEnt extends Component {
 
     public init(raid: RaidItem) {
         this.raidData = raid;
-        console.log("RAID:", raid)
         if (this.titleLabel) this.titleLabel.string = raid.name || 'НЕИЗВЕСТНАЯ ЗОНА';
-        // Теперь мы передаем только само значение, без слова "СЛОЖНОСТЬ"
         if (this.difficultyLabel) this.difficultyLabel.string = raid.difficulty || '???'; 
-        console.log("ICON URL:", raid.iconImage);
         this.loadIcon(raid.iconImage);
-        // Кнопка уже красивая благодаря Инспектору. Просто вешаем слушатель.
         if (this.selectBtn) {
             this.selectBtn.node.off(Button.EventType.CLICK);
             this.selectBtn.node.on(Button.EventType.CLICK, this.onSelectClick, this);

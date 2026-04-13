@@ -8,8 +8,6 @@ export function useRaidLauncher() {
 
     
      async function startRaidSelection(raidListPrefab: Prefab) {
-        console.log("ПОКАЗЫВАЕМ ДИАЛОГ!")
-        // 1. Открываем диалог и ЖДЕМ (await)
         const selectedRaid = await showDialog({
             isConfirm: true,
             header: "ВЫБОР РЕЙДА",
@@ -19,7 +17,6 @@ export function useRaidLauncher() {
             }
         });
 
-        // Если вышли из диалога (нажали X)
         if (!selectedRaid) return;
 
         // --- НАЧИНАЕТСЯ ГРЯЗНАЯ РАБОТА ---

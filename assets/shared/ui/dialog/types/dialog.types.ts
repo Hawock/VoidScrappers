@@ -7,6 +7,7 @@ export type AppButtonType = 'primary' | 'secondary' | 'danger' | 'warning' | 'de
 export interface IDialogOptions {
     width?: number;
     height?: number;
+    closable?: boolean;
     // Оставляем возможность прокидывать любые другие параметры на будущее
     [key: string]: any; 
 }

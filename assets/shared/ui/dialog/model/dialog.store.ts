@@ -9,7 +9,7 @@ export const useDialogs = () => PinaColada.instance.useStore('dialogs', () => {
     const events = new EventTarget(); 
 
     const showDialog = (dialog: IDialogWithoutId) => {
-        return new Promise<boolean>((resolve) => {
+        return new Promise<any>((resolve) => {
             const newDialog = {
                 ...dialog,
                 id: currentDialogId++,

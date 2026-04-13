@@ -5,7 +5,7 @@ export interface GuestLoginRequestDto {
     nickname?: string;
 }
 
-export interface PlayerPayloadDto {
+export interface AuthDto {
     sub: string;
     deviceId: string;
     nickname: string;
@@ -13,5 +13,5 @@ export interface PlayerPayloadDto {
 
 export interface AuthResponseDto {
     access_token: string;
-    player: PlayerPayloadDto;
+    player: AuthDto;
 }

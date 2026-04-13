@@ -1,14 +1,16 @@
-import { _decorator, Component, sys, director, Node, Label } from 'cc';
-import { GuestLoginRequestDto, useProfileStore } from '../../entities/profile';
-import * as cc from 'cc';
+import { _decorator, Component, sys, director, Node, Label, Prefab } from 'cc';
+import { GuestLoginRequestDto, useProfileStore, User } from '../../entities/profile';
+import { useDialogs } from '../../shared/ui';
+import { ColyseusManager } from '../../app/ColyseusManager';
 
 const { ccclass, property } = _decorator;
 
 @ccclass('Bootstrapper')
 export class Bootstrapper extends Component {
     @property(Label)
-    statusLabel: Label = null; // Чтобы игрок видел, что происходит
-
+    statusLabel: Label = null; 
+    @property(Prefab)
+    vanguardSelectionPrefab: Prefab = null; 
     private profileStore = useProfileStore();
 
     async start() {
@@ -23,46 +25,63 @@ export class Bootstrapper extends Component {
     }
 
     async initGame() {
-        try {
-            // 1. Работа с Device ID
-            let deviceId = sys.localStorage.getItem('deviceId');
-            
-            if (!deviceId) {
-                this.updateStatus("Генерация идентификатора...");
-                deviceId = this.generateUUID();
-                sys.localStorage.setItem('deviceId', deviceId);
+        let deviceId = sys.localStorage.getItem('deviceId');
+
+        if (!deviceId) {
+            this.updateStatus("Генерация идентификатора...");
+            deviceId = this.generateUUID();
+            sys.localStorage.setItem('deviceId', deviceId);
+        }
+        this.updateStatus("Авторизация в Сети...");
+
+        const loginDto: GuestLoginRequestDto = {
+            deviceId: deviceId,
+            nickname: "Авангард"
+        };
+        const loginResult = await this.profileStore.guestLogin(loginDto);
+        if (!loginResult) return console.error("Ошибка при попытке входа гостя!");
+        const user = await this.profileStore.getFullProfile();
+        if (!user) return console.error("Ошибка при загрузке профиля после входа!");
+        this.selectStartVanguard(user.needsInitialSelection);
+    }
+
+    private async selectStartVanguard(needsSelection: boolean) {
+        if (needsSelection) {
+            this.statusLabel.node.active = false; 
+            const { showDialog } = useDialogs();
+            const selectedVanguard = await showDialog({
+                isConfirm: true,
+                header: "ВЫБЕРИТЕ АВАНГАРД",
+                component: this.vanguardSelectionPrefab,
+                dialogOptions:{
+                    closable: false,
+                    height: 950,
+                    width: 800,
+                }
+            });
+            console.log("Выбранный авангард:", selectedVanguard);
+            if(selectedVanguard){
+                const res = await this.profileStore.setStartVanguard(selectedVanguard.id);
+                if(res){
+                    this.updateStatus("Доступ разрешен!");
+                    this.proceedToLobby();
+                }
             }
 
-            // 2. Авторизация через наш Store/API
-            this.updateStatus("Авторизация в Сети...");
-            
-            const loginDto: GuestLoginRequestDto = {
-                deviceId: deviceId,
-                nickname: "Авангард" // Можно потом дать игроку ввести имя
-            };
-
-            const success = await this.profileStore.guestLogin(loginDto);
-
-            if (success) {
-                this.updateStatus("Доступ разрешен!");
-                
-                // Сохраняем токен в localStorage для автоматического входа в следующий раз
-                // Хотя Api.ts берет его из Store, после перезагрузки Store пуст.
-                sys.localStorage.setItem('token', this.profileStore.token.value);
-
-                // 3. Загрузка основной сцены
-                this.proceedToLobby();
-            } else {
-                this.updateStatus("Ошибка входа. Проверьте сервер.");
-            }
-
-        } catch (e) {
-            this.updateStatus("Критическая ошибка запуска.");
-            console.error(e);
+        }else{
+            this.updateStatus("Доступ разрешен!");
+            this.proceedToLobby();
         }
     }
 
-    private proceedToLobby() {
+     private async proceedToLobby() {
+        const user = useProfileStore().user.value;
+        if (ColyseusManager.instance) {
+                await ColyseusManager.instance.connectToLobby({
+                    id: user.id,
+                    nickname: user.nickname
+                });
+            }
         this.updateStatus("Загрузка штаба...");
         director.loadScene('ResourceLoader');
     }
