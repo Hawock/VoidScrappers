@@ -43,7 +43,7 @@ export class ColyseusManager extends Component {
     /**
      * Основной вход в игру через лобби
      */
-    public async connectToLobby(userData: { id: string, nickname: string, avatar?: string }) {
+    public async connectToLobby(userData: { id: string, nickname: string, vanguardKey: string, vanguardId: string }) {
         try {
             // 1. Личный канал (для уведомлений вне комнат)
             this.privateRoom = await this.client.joinOrCreate("private", { userId: userData.id });

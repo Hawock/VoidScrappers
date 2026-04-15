@@ -79,7 +79,9 @@ export class Bootstrapper extends Component {
         if (ColyseusManager.instance) {
                 await ColyseusManager.instance.connectToLobby({
                     id: user.id,
-                    nickname: user.nickname
+                    nickname: user.nickname,
+                    vanguardId: user.activeVanguard.id,
+                    vanguardKey: user.activeVanguard.vanguard.name
                 });
             }
         this.updateStatus("Загрузка штаба...");

@@ -63,8 +63,7 @@ export const useLobbyStore = () => {
             } else if (me && me.partyId === "") {
                 console.log(`👤 [LobbyStore] Ты сейчас соло-боец.`);
             }
-            // ----------------------
-
+            console.log(players.value);
             checkAutoStart();
         }
 
