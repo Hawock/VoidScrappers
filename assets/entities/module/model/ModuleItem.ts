@@ -1,6 +1,7 @@
 import { _decorator, Component, Node, Sprite, SpriteAtlas, Label, tween, Vec3, Color } from 'cc';
-import { RARITY } from 'db://assets/widgets/inventory/config/module.enum';
-import { IUserModule } from 'db://assets/widgets/inventory/types/IUSerModule';
+import { RARITY } from 'db://assets/entities/module/config/module.enum';
+import { IUserModule } from '../types/IUserModule';
+
 const { ccclass, property } = _decorator;
 
 @ccclass('ModuleItem')
@@ -17,13 +18,12 @@ export class ModuleItem extends Component {
 
     public data: IUserModule | null = null;
     private _isSelected = false;
-    
-    public init(data: IUserModule) {
+
+    public init(data: any) {
         this.data = data;
 
-        // 1. Установка рамок по Rarity
-        // Теперь rarity — это строка-ключ из твоего Enum (STARTER, COMMON...)
-        const rarityKey = data.rarity.toLowerCase();
+        // 1. Определяем редкость (в обоих типах поле rarity на верхнем уровне)
+        const rarityKey = (data.rarity || 'STARTER').toLowerCase();
         const frameSprite = this.framesAtlas.getSpriteFrame(rarityKey);
 
         if (frameSprite) {
@@ -32,11 +32,15 @@ export class ModuleItem extends Component {
             this.countFrameSprite.spriteFrame = frameSprite;
         }
 
-        // 2. Установка иконки из статичных данных модуля
-        // Используем spriteFrame из вложенного объекта module
-        if (data.module && data.module.spriteFrame) {
-            // Тут логика подгрузки иконки, например из атласа иконок:
-            // this.icon.spriteFrame = iconsAtlas.getSpriteFrame(data.module.spriteFrame);
+        // 2. Установка иконки
+        // Если это UserModule — берем из data.module.spriteFrame
+        // Если это Чертеж — берем прямо из data.spriteFrame
+        const iconName = data.module ? data.module.spriteFrame : data.spriteFrame;
+        
+        if (iconName) {
+            // Здесь должен быть твой атлас с иконками пушек
+            // this.icon.spriteFrame = this.iconsAtlas.getSpriteFrame(iconName);
+            console.log("Устанавливаем иконку:", iconName);
         }
 
         this.updateLabels();

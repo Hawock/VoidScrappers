@@ -22,7 +22,7 @@ export const useProfileStore = () => {
         
         // --- НОВЫЙ СТЕЙТ ПРОФИЛЯ ---
         const needsInitialSelection = ref<boolean>(false);
-        const activeVanguard = ref<any>(null); // Тут позже можно типизировать
+        //const activeVanguard = ref<any>(null); 
 
         // --- ACTIONS ---
         function setAuth (data: { access_token: string}) {
@@ -47,7 +47,6 @@ export const useProfileStore = () => {
             token.value = '';
             isAuthorized.value = false;
             needsInitialSelection.value = false;
-            activeVanguard.value = null;
             sys.localStorage.removeItem('token');
         };
 
@@ -92,7 +91,6 @@ export const useProfileStore = () => {
             token,
             isAuthorized,
             needsInitialSelection,
-            activeVanguard,
             logout,
             getFullProfile,
             guestLogin,

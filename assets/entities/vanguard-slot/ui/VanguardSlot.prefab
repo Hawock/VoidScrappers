@@ -1,7 +1,7 @@
 [
   {
     "__type__": "cc.Prefab",
-    "_name": "Slot",
+    "_name": "VanguardSlot",
     "_objFlags": 0,
     "__editorExtras__": {},
     "_native": "",
@@ -13,7 +13,7 @@
   },
   {
     "__type__": "cc.Node",
-    "_name": "Slot",
+    "_name": "VanguardSlot",
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": null,
@@ -52,8 +52,8 @@
     },
     "_lscale": {
       "__type__": "cc.Vec3",
-      "x": 0.5,
-      "y": 0.5,
+      "x": 1,
+      "y": 1,
       "z": 1
     },
     "_mobility": 0,
@@ -133,8 +133,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 384,
-      "height": 378
+      "width": 126.9,
+      "height": 135.2
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -264,8 +264,8 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": 0,
-      "y": 0,
+      "x": -4.400000000000006,
+      "y": -2.189000000000007,
       "z": 0
     },
     "_lrot": {
@@ -305,8 +305,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 384,
-      "height": 378
+      "width": 100.50000000000003,
+      "height": 103.69999999999999
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -333,10 +333,10 @@
     },
     "_alignFlags": 45,
     "_target": null,
-    "_left": 0,
-    "_right": 0,
-    "_top": 0,
-    "_bottom": 0,
+    "_left": 8.799999999999986,
+    "_right": 17.599999999999994,
+    "_top": 17.939,
+    "_bottom": 13.560999999999996,
     "_horizontalCenter": 0,
     "_verticalCenter": 0,
     "_isAbsLeft": true,
@@ -382,8 +382,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 384,
-      "height": 378
+      "width": 126.9,
+      "height": 135.2
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -415,6 +415,10 @@
       "__uuid__": "0730ac9c-88b5-4674-b1e4-2d9ebc8a4b67",
       "__expectedType__": "cc.SpriteAtlas"
     },
+    "moduleContainer": {
+      "__id__": 10
+    },
+    "displayOrder": 0,
     "_id": ""
   },
   {

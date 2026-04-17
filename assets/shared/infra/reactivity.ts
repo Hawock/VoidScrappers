@@ -1,9 +1,13 @@
 import { EventTarget } from 'cc';
 
+// Глобальная переменная для отслеживания текущего контекста (наблюдателя)
+let activeEffect: (() => void) | null = null;
+
 export class Ref<T> {
     private _raw: T;
     private _proxy: T;
-    private _isPending = false; // 1. Добавляем флаг-предохранитель
+    private _isPending = false;
+    private _autoDeps: Set<() => void> = new Set(); // Сет для эффектов (computed/watch)
     public events: EventTarget = new EventTarget();
 
     constructor(value: T) {
@@ -12,6 +16,10 @@ export class Ref<T> {
     }
 
     get value(): T {
+        // МАГИЯ: Если сейчас выполняется какой-то computed, он "подпишется" на этот ref
+        if (activeEffect) {
+            this._autoDeps.add(activeEffect);
+        }
         return this._proxy;
     }
 
@@ -22,17 +30,18 @@ export class Ref<T> {
         this.trigger();
     }
 
-    // 2. Модернизируем триггер
     public trigger() {
-        // Если уведомление уже запланировано в очереди — выходим
         if (this._isPending) return;
-
         this._isPending = true;
 
-        // 3. Закидываем задачу в очередь микрозадач
         Promise.resolve().then(() => {
+            // 1. Уведомляем ручные подписки (UI)
             this.events.emit('changed', this._proxy);
-            this._isPending = false; // Сбрасываем флаг, когда всё отработало
+            
+            // 2. Уведомляем автоматические зависимости (computed)
+            this._autoDeps.forEach(effect => effect());
+            
+            this._isPending = false;
         });
     }
 
@@ -41,6 +50,11 @@ export class Ref<T> {
         const self = this;
         return new Proxy(val, {
             get(target, prop) {
+                // Глубокое отслеживание: если мы читаем свойство объекта внутри computed
+                if (activeEffect) {
+                    self._autoDeps.add(activeEffect);
+                }
+
                 const result = target[prop];
                 if (typeof result === 'object' && result !== null) {
                     return self.makeReactive(result);
@@ -53,7 +67,7 @@ export class Ref<T> {
             set(target, prop, newValue) {
                 if (target[prop] === newValue) return true;
                 target[prop] = newValue;
-                self.trigger(); // Тут всё остается так же
+                self.trigger();
                 return true;
             }
         });
@@ -61,3 +75,29 @@ export class Ref<T> {
 }
 
 export const ref = <T>(val: T) => new Ref<T>(val);
+
+export function watch<T>(source: Ref<T>, cb: (newValue: T) => void) {
+    source.events.on('changed', cb);
+    return () => source.events.off('changed', cb);
+}
+
+/**
+ * УМНЫЙ COMPUTED:
+ * Теперь не нужен второй параметр deps!
+ */
+export function computed<T>(getter: () => T) {
+    // Инициализируем реф пустым значением
+    const result = ref<T>(null as any);
+
+    // Обертка-эффект, которая будет перезапускаться
+    const runner = () => {
+        activeEffect = runner; // Ставим себя в глобальный трекер
+        result.value = getter(); // Выполняем геттер (рефы внутри сами подпишут runner)
+        activeEffect = null;    // Сбрасываем трекер
+    };
+
+    // Запускаем первый раз для сбора зависимостей и получения значения
+    runner();
+
+    return result;
+}

@@ -1,57 +1,67 @@
-import { _decorator, Component, Node, Button, Prefab } from 'cc';
+import { _decorator, Component, Node, Prefab, instantiate } from 'cc';
 import { useDialogs } from '../../shared/ui/dialog';
 import { useRaidLauncher } from '../../feature/raid-launcher/model/raid-launcher.feature';
 import { ColyseusManager } from '../../app/ColyseusManager';
 import { useProfileStore } from '../../entities/profile';
-// import { ExecutorRequest } from './твой/путь/ExecutorRequest'; // Пригодится чуть позже
+import { useInventoryStore } from '../../entities/module/model/inventory.store';
 
 const { ccclass, property } = _decorator;
 
 @ccclass('MainMenuController')
 export class MainMenuController extends Component {
-    @property(Prefab) 
-    raidListWidgetPrefab: Prefab = null!;
+    @property(Prefab) raidListWidgetPrefab: Prefab = null!;
+    @property(Prefab) inventoryPrefab: Prefab = null!; 
+    @property(Node) uiLayer: Node = null!;            
+
+    private _inventoryNode: Node | null = null;
+
+    // ГЕТТЕР вместо прямого присвоения — это спасет от ошибок в редакторе
+    private get _inventoryStore() {
+        return useInventoryStore();
+    }
 
     start() {
-        const { showDialog } = useDialogs()
-        console.log(useProfileStore().user.value.id)
-        const user = useProfileStore().user.value;
+        // Проверяем, загружен ли профиль, прежде чем логировать
+        const profileStore = useProfileStore();
+        if (!profileStore.user.value) {
+            console.warn("Профиль еще не загружен");
+            return;
+        }
+
+        const user = profileStore.user.value;
         console.log("ПОЛНЫЙ ОБЪЕКТ ИГРОКА", user);
-        console.log(`Игрок: ${user.nickname}`);
-        console.log(`Активный Авангард: ${user.activeVanguard?.vanguard?.name || 'НЕТ'}`);
         
-        const modules = user.activeVanguard?.equippedModules || [];
-        console.log(`Количество модулей: ${modules.length}`);
+        // ... твой остальной код логов ...
+    }
 
-        modules.forEach((mod, index) => {
-            const cards = mod.selectedProtocols || [];
-            console.log(`[Slot ${index + 1}] Модуль: ${mod.module?.name} | Карт в колоде: ${cards.length}`);
+    public async onOpenInventoryClick() {
+        if (!this.inventoryPrefab || !this.uiLayer) {
+            console.error("MainMenuController: Проверь ссылки на префаб и UI Layer в инспекторе!");
+            return;
+        }
 
-            cards.forEach(card => {
-                console.log(`   - Карта: ${card.protocol?.name} (Cost: ${card.protocol?.cost})`);
-            });
-        });
+        console.log("Загружаем данные инвентаря...");
+        // Стор подхватится через геттер при вызове
+        await Promise.all([this._inventoryStore.getModules(), this._inventoryStore.getBluePrints()]);
+        console.log("Данные загружены!");
+        if (!this._inventoryNode) {
+            this._inventoryNode = instantiate(this.inventoryPrefab);
+            this._inventoryNode.parent = this.uiLayer;
+        }
 
-        console.log("======================");
-        showDialog({
-            header: "TECТОВОЕ",
-            text: "Тестовое описание",
-        })
+        this._inventoryNode.active = true;
     }
 
     public onStartRaidButtonClick() {
-        // Просто делегируем всё управление фиче
         useRaidLauncher().startRaidSelection(this.raidListWidgetPrefab);
     }
 
     public inviteFriend(){
-        console.log("📤 Шлем инвайт для:", "b00632b0-aa29-4727-b535-181a18ac5400");
+        const friendId = "b00632b0-aa29-4727-b535-181a18ac5400";
         if (ColyseusManager.instance) {
-            ColyseusManager.instance.sendInvite("b00632b0-aa29-4727-b535-181a18ac5400");
+            ColyseusManager.instance.sendInvite(friendId);
         } else {
-            console.error("❌ ColyseusManager не найден в бессмертных нодах!");
+            console.error("❌ ColyseusManager не найден!");
         }
     }
-
-   
 }
