@@ -1,11 +1,13 @@
-import { _decorator, Component, EventTouch, Input, input, Node, Prefab, instantiate, UITransform, Vec2, Vec3, ScrollView, UIOpacity } from 'cc';
+import { _decorator, Component, EventTouch, Input, input, Node, Prefab, instantiate, UITransform, Vec2, Vec3, ScrollView, SpriteFrame } from 'cc';
 import { watch } from 'db://assets/shared/infra/reactivity';
 import { InventorySlot } from './InventorySlot';
 import { useInventoryStore } from 'db://assets/entities/module/model/inventory.store';
-import { useProfileStore } from 'db://assets/entities/profile/model/profile.store'; // Проверь путь!
-import { IUserModule } from 'db://assets/entities/module/types/IUserModule';
+import { useProfileStore } from 'db://assets/entities/profile/model/profile.store';
 import { ModuleItem } from 'db://assets/entities/module/model/ModuleItem';
 import { VanguardSlot } from 'db://assets/entities/vanguard-slot/model/VanguardSlot';
+import { UserModule } from 'db://assets/entities/module/model/classess/module';
+import { ModuleDragItem } from 'db://assets/entities/module/model/ModuleDragItem';
+import { RARITY } from 'db://assets/entities/module/config/module.enum';
 
 const { ccclass, property } = _decorator;
 
@@ -19,54 +21,85 @@ export class InventoryManager extends Component {
     @property(Node) contentNode: Node = null!;      // Сетка инвентаря
     @property(Node) vanguardSlotsNode: Node = null!; // Нода, где лежат слоты на роботе
     @property(Node) inventoryArea: Node = null!;    // Область рюкзака
-    @property(Node) dragVisual: Node = null!;       // "Призрак" при перетаскивании
     @property(ScrollView) inventoryScroll: ScrollView = null!;
+    
+    // Наш новый компонент для призрака
+    @property(ModuleDragItem) dragVisualComp: ModuleDragItem = null!;
 
     private _inventoryStore = useInventoryStore();
     private _profileStore = useProfileStore();
     private _slots: InventorySlot[] = [];
-    private _draggedData: any = null;
+    private _draggedData: UserModule | null = null;
+    private _watchers: Function[] = [];
 
     onLoad() {
-        this.dragVisual.active = false;
+        // Гарантируем, что призрак выключен
+        if (this.dragVisualComp) this.dragVisualComp.node.active = false;
+
         this.generateEmptyGrid(24);
 
-        // 1. Следим за рюкзаком (чертежами)
-        watch(this._inventoryStore.stashBlueprints, (bp) => this.syncInventoryUI(bp));
+       this._watchers.push(watch(this._inventoryStore.fullInventoryList, (items) => {
+            console.log(`[MANAGER] Список обновился, объектов: ${items.length}`);
+            this.syncInventoryUI(items);
+        }));
 
-        // 2. Умная подписка на модули
-        // Следим за изменениями всего юзера. Как только он прилетит или сменится — сработает логика.
-        watch(this._profileStore.user, (user) => {
-            const activeVanguard = user?.activeVanguard;
-
-            if (activeVanguard) {
-                console.log(`[MANAGER] Робот опознан: ${activeVanguard.vanguard?.name}`);
-
-                // Берем модули из стора, используя ID экземпляра (UserVanguard.id)
-                const equipped = this._inventoryStore.equippedModules(activeVanguard.v.id).value;
+        this._watchers.push(watch(this._inventoryStore.userModules, () => {
+            const currentUser = this._profileStore.user.value;
+            if (currentUser?.activeVanguard) {
+                console.log("[MANAGER] Модули изменились, обновляю слоты авангарда...");
+                // Вызываем нашу функцию из стора, которая вернет актуальный список надетых вещей
+                const equipped = this._inventoryStore.equippedModules(currentUser.activeVanguard.id).value;
                 this.syncVanguardUI(equipped || []);
             }
-        });
+        }));
 
-        // 3. Мгновенная отрисовка, если данные уже есть в памяти (при открытии окна)
-        const currentUser = this._profileStore.user.value;
-        if (currentUser?.activeVanguard) {
-            const equipped = this._inventoryStore.equippedModules(currentUser.activeVanguard.id).value;
-            this.syncVanguardUI(equipped || []);
-        }
+        this._watchers.push(watch(this._inventoryStore.selectedModuleId, () => {
+            console.log("[MANAGER] Смена выбора в сторе, обновляю визуал...");
+            this.updateVisualSelection();
+        }));
 
-        // Глобальные события
+
+        // 2. Умная подписка на модули экипировки
+        this._watchers.push(watch(this._profileStore.user, (user) => {
+            const activeVanguard = user?.activeVanguard;
+            if (activeVanguard) {
+                console.log(`[MANAGER] Робот опознан: ${activeVanguard.vanguard?.name}`);
+                const equipped = this._inventoryStore.equippedModules(activeVanguard.id).value;
+                this.syncVanguardUI(equipped || []);
+            }
+        }));
+
+        // Глобальные события тача для Drag & Drop
         input.on(Input.EventType.TOUCH_MOVE, this.onGlobalMove, this);
         input.on(Input.EventType.TOUCH_END, this.onGlobalEnd, this);
+        input.on(Input.EventType.TOUCH_CANCEL, this.onGlobalEnd, this);
     }
 
-    onEnable() {
-        // Вызываем отрисовку каждый раз, когда окно становится активным
-        console.log("MANAGER: Окно открыто, проверяю данные в сторе...");
+    private updateVisualSelection() {
+        const selectedId = this._inventoryStore.selectedModuleId.value;
         
-        const blueprints = this._inventoryStore.stashBlueprints.value;
-        if (blueprints && blueprints.length > 0) {
-            this.syncInventoryUI(blueprints);
+        // Собираем все компоненты ModuleItem, которые сейчас есть на сцене
+        // (и в инвентаре, и в слотах авангарда)
+        const allItems = this.node.getComponentsInChildren(ModuleItem);
+
+        allItems.forEach(itemComp => {
+            if (itemComp.data) {
+                const isSelected = (itemComp.data.id || itemComp.data.moduleId) === selectedId;
+                itemComp.setSelect(isSelected);
+            }
+        });
+    }
+    
+
+    onEnable() {
+        console.log("MANAGER: Окно открыто, форсирую отрисовку...");
+        
+        // Сначала убедимся, что сетка создана (если вдруг onLoad еще не отработал)
+        if (this._slots.length === 0) this.generateEmptyGrid(24);
+
+        const allItems = this._inventoryStore.fullInventoryList.value;
+        if (allItems && allItems.length > 0) {
+            this.syncInventoryUI(allItems);
         }
 
         const currentUser = this._profileStore.user.value;
@@ -74,6 +107,16 @@ export class InventoryManager extends Component {
             const equipped = this._inventoryStore.equippedModules(currentUser.activeVanguard.id).value;
             this.syncVanguardUI(equipped || []);
         }
+    }
+
+    onDestroy() {
+        // Очистка подписок при уничтожении менеджера
+        this._watchers.forEach(unwatch => unwatch());
+        this._watchers = [];
+        
+        input.off(Input.EventType.TOUCH_MOVE, this.onGlobalMove, this);
+        input.off(Input.EventType.TOUCH_END, this.onGlobalEnd, this);
+        input.off(Input.EventType.TOUCH_CANCEL, this.onGlobalEnd, this);
     }
 
     private generateEmptyGrid(count: number) {
@@ -87,116 +130,197 @@ export class InventoryManager extends Component {
         }
     }
 
-    /**
-     * Заполнение сетки рюкзака чертежами
-     */
-    private syncInventoryUI(blueprints: any[]) {
-        console.log("--- СТАРТ СИНХРОНИЗАЦИИ ЧЕРТЕЖЕЙ---");
-        console.log("Кол-во чертежей в массиве:", blueprints.length);
+    private syncInventoryUI(items: UserModule[]) {
         this._slots.forEach(slot => slot.clear());
-        if (!blueprints) return;
+        if (!items) return;
 
-        blueprints.forEach((data, index) => {
+        items.forEach((data, index) => {
             if (this._slots[index]) {
                 const moduleNode = instantiate(this.modulePrefab);
-                moduleNode.getComponent(ModuleItem).init(data);
-                this._slots[index].addModule(moduleNode);
+                const itemComp = moduleNode.getComponent(ModuleItem);
+                if (itemComp) {
+                    itemComp.init(data);
+                    this._slots[index].addModule(moduleNode);
+                    
+                    // КЛИК ДЛЯ ВЫБОРА
+                    moduleNode.on(Node.EventType.TOUCH_END, () => {
+                        this._inventoryStore.selectModule(data.id || data.moduleId);
+                    }, this);
+                }
             }
         });
+        this.updateVisualSelection();
     }
 
-    /**
-     * Заполнение слотов на самом роботе
-     */
-    private syncVanguardUI(equippedModules: any[]) {
+    private syncVanguardUI(equippedModules: UserModule[]) {
         const uiSlots = this.vanguardSlotsNode.getComponentsInChildren(VanguardSlot);
         const user = this._profileStore.user.value;
         const slotsDefinition = user?.activeVanguard?.vanguard?.vanguardSlots || [];
-
-        console.log("--- СТАРТ СИНХРОНИЗАЦИИ ---");
-        console.log("Кол-во одетых модулей в массиве:", equippedModules.length);
-        if (equippedModules.length > 0) {
-            console.log("ID слотов в модулях:", equippedModules.map(m => m.vanguardSlotId));
-        }
 
         uiSlots.forEach(slot => slot.clear());
 
         slotsDefinition.forEach(slotDef => {
             const targetUI = uiSlots.find(s => Number(s.displayOrder) === Number(slotDef.displayOrder));
-
             if (targetUI) {
                 targetUI.initSlot(slotDef.slot?.code || "WEAPON", slotDef.id);
-
-                // ЛОГ СРАВНЕНИЯ
-                console.log(`Ищу модуль для слота ID: ${slotDef.id} (displayOrder: ${slotDef.displayOrder})`);
-
                 const modData = equippedModules?.find(m => m.vanguardSlotId === slotDef.id);
 
                 if (modData) {
-                    console.log(`✅ МАТЧ НАЙДЕН! Ставлю ${modData.module?.name}`);
                     const moduleNode = instantiate(this.modulePrefab);
-                    moduleNode.getComponent(ModuleItem).init(modData);
-                    targetUI.addModule(moduleNode);
-                } else {
-                    console.warn(`❌ Модуль для ID ${slotDef.id} не найден в списке одетых.`);
+                    const itemComp = moduleNode.getComponent(ModuleItem);
+                    if (itemComp) {
+                        itemComp.init(modData);
+                        targetUI.addModule(moduleNode);
+
+                        // КЛИК ДЛЯ ВЫБОРА (на роботе тоже можно выбирать)
+                        moduleNode.on(Node.EventType.TOUCH_END, () => {
+                            this._inventoryStore.selectModule(modData.id || modData.moduleId);
+                        }, this);
+                    }
                 }
             }
         });
+        this.updateVisualSelection();
     }
 
     // --- DRAG & DROP ---
 
-    public startDrag(data: any, worldPos: Vec3) {
+    public startDrag(data: UserModule, worldPos: Vec3, currentIcon: SpriteFrame | null) {
         this._draggedData = data;
-        this.dragVisual.active = true;
-        this.dragVisual.setWorldPosition(worldPos);
-        this.inventoryScroll.enabled = false;
+        
+        // 1. Выбираем модуль в сторе
+        this._inventoryStore.selectModule(data.id || data.moduleId);
+
+        // 2. СРАЗУ заставляем оригинал в сетке или на роботе пульсировать
+        this.updateVisualSelection();
+
+        this.updateSlotsHighlight(true);
+
+        if (this.dragVisualComp) {
+            this.dragVisualComp.node.active = true;
+            this.dragVisualComp.node.setWorldPosition(worldPos);
+            this.dragVisualComp.init(data);
+            this.dragVisualComp.setIcon(currentIcon);
+            
+            // ПРИЗРАК НЕ ПУЛЬСИРУЕТ - оставляем его как есть
+            // this.dragVisualComp.setSelect(false); 
+        }
+
+        if (this.inventoryScroll) this.inventoryScroll.enabled = false;
+    }
+
+    private updateSlotsHighlight(isDragging: boolean) {
+        const slots = this.vanguardSlotsNode.getComponentsInChildren(VanguardSlot);
+        const draggedType = this._draggedData?.slotType;
+
+        slots.forEach(slot => {
+            // Слот подходит, если его тип совпадает с типом перетаскиваемого модуля
+            const isSuitable = slot.slotType.toLocaleLowerCase() === draggedType.toLocaleLowerCase();
+            slot.setHighlightState(isSuitable, isDragging);
+        });
+    }
+
+    public updateDrag(screenPos: Vec2) {
+        if (!this.dragVisualComp || !this._draggedData) return;
+
+        if (!this.dragVisualComp.node.active) {
+            this.dragVisualComp.node.active = true;
+        }
+
+        // Конвертация координат (самый надежный способ для UI)
+        const parentUITrans = this.node.getComponent(UITransform)!;
+        const localPos = parentUITrans.convertToNodeSpaceAR(new Vec3(screenPos.x, screenPos.y, 0));
+        
+        // console.log("Ghost Moving To:", localPos.x, localPos.y);
+        this.dragVisualComp.node.setPosition(localPos);
     }
 
     private onGlobalMove(event: EventTouch) {
-        if (!this.dragVisual.active) return;
-        this.dragVisual.setWorldPosition(new Vec3(event.getUILocation().x, event.getUILocation().y, 0));
+        // ЛОГ ДО ПРОВЕРКИ
+        console.log("Global Move Fired"); 
+
+        if (!this.dragVisualComp) return;
+        
+        // Если этот лог не пишется, значит node.active почему-то false
+        if (!this.dragVisualComp.node.active) {
+            // console.log("Move ignored: Ghost node is inactive");
+            return;
+        }
+
+        const screenPos = event.getUILocation();
+        const parentUITrans = this.node.getComponent(UITransform)!;
+        const localPos = parentUITrans.convertToNodeSpaceAR(new Vec3(screenPos.x, screenPos.y, 0));
+        
+        console.log("Ghost Pos:", localPos.x, localPos.y);
+        this.dragVisualComp.node.setPosition(localPos);
     }
 
-    private onGlobalEnd(event: EventTouch) {
-        if (!this.dragVisual.active || !this._draggedData) return;
+    public onGlobalEnd(event: EventTouch) {
+        if (!this.dragVisualComp || !this.dragVisualComp.node.active || !this._draggedData) return;
 
         const touchPos = event.getUILocation();
         const isDroppedInInv = this.isPosInNode(touchPos, this.inventoryArea);
 
         if (isDroppedInInv) {
-            // Если тянули с робота в инвентарь — снимаем
+            // Если тянули надетый модуль в инвентарь — снимаем
             if (this._draggedData.id && this._draggedData.equippedToId) {
                 this._inventoryStore.unequipModule(this._draggedData.id);
             }
         } else {
-            // Если бросили в сторону робота — пытаемся надеть
+            // Пытаемся поставить на робота
             this.handleVanguardDrop(touchPos);
         }
+        this.updateSlotsHighlight(false);
 
-        this.dragVisual.active = false;
-        this.inventoryScroll.enabled = true;
+        this.dragVisualComp.node.active = false;
+        if (this.inventoryScroll) this.inventoryScroll.enabled = true;
         this._draggedData = null;
     }
 
     private handleVanguardDrop(touchPos: Vec2) {
         const slots = this.vanguardSlotsNode.getComponentsInChildren(VanguardSlot);
-        const currentVanguardId = this._profileStore.user.value?.activeVanguard.vanguard?.id;
+        const activeVanguard = this._profileStore.user.value?.activeVanguard;
+
+        if (!activeVanguard || !this._draggedData) return;
 
         for (const slot of slots) {
             if (this.isPosInNode(touchPos, slot.node)) {
-                // Вызываем экипировку из стора (проверка типа слота будет в сторе или тут)
-                this._inventoryStore.equipModule(this._draggedData.id, currentVanguardId, slot.slotId);
+                
+                // 1. ПРОВЕРКА ТИПА (Weapon, Core и т.д.)
+                if (slot.slotType.toLocaleLowerCase() !== this._draggedData.slotType.toLocaleLowerCase()) {
+                    console.warn(`[D&D] Тип не совпадает! Слот: ${slot.slotType}, Модуль: ${this._draggedData.slotType}`);
+                    return; 
+                }
+
+                // 2. ПРОВЕРКА ЛИМИТА СТАРТЕРОВ
+                if (this._draggedData.rarity === RARITY.STARTER && !this._draggedData.equippedToId) {
+                    const canAdd = this._inventoryStore.canAddStarter.value[slot.slotType];
+                    if (!canAdd) {
+                        console.error(`[D&D] Лимит стартеров для ${slot.slotType} исчерпан!`);
+                        return;
+                    }
+                }
+
+                // 3. ОТПРАВКА В СТОР
+                // Если id нет (это чертеж), берем moduleId
+                const idToEquip = this._draggedData.id || this._draggedData.moduleId;
+                
+                console.log(`[D&D] Экипируем ${idToEquip} в слот ${slot.slotId}`);
+                this._inventoryStore.equipModule(idToEquip, activeVanguard.id, slot.slotId);
                 return;
             }
         }
     }
 
     private isPosInNode(worldPos: Vec2, node: Node): boolean {
+        if (!node || !node.isValid) return false;
         const uiTrans = node.getComponent(UITransform);
         if (!uiTrans) return false;
-        const localPos = uiTrans.convertToNodeSpaceAR(new Vec3(worldPos.x, worldPos.y, 0));
-        const size = uiTrans.contentSize;
-        return Math.abs(localPos.x) <= size.width / 2 && Math.abs(localPos.y) <= size.height / 2;
+
+        // Получаем ограничивающую рамку ноды в мировых координатах
+        const rect = uiTrans.getBoundingBoxToWorld();
+        
+        // Проверяем, входит ли точка тача (worldPos) в этот прямоугольник
+        return rect.contains(worldPos);
     }
 }

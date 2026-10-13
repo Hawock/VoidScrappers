@@ -5,8 +5,9 @@ import { ExecutorRequest } from "db://assets/shared/infra/api";
 import { InventoryApiService } from "../api/inventory.api";
 import { IUserModule } from "../types/IUserModule";
 import { UserModule } from "./classess/module";
-import { ModuleBase } from "./classess/module-base";
 import { useProfileStore } from "../../profile";
+import { RARITY } from "../config/module.enum";
+import { IModuleBase } from "../types/IModuleBase";
 
 
 export const useInventoryStore = () => {
@@ -17,19 +18,22 @@ export const useInventoryStore = () => {
             return profileStore.user.value?.activeVanguard }
         );
         // --- STATE ---
-        const baseModules = ref<ModuleBase[]>([]);
+        const baseModules = ref<UserModule[]>([]);
         const userModules = ref<UserModule[]>([]);
         const isLoading = ref(false);
-
+        const selectedModuleId = ref<string | null>(null);
+       // 1. Модули, которые НЕ надеты (лежат в рюкзаке)
         const stashModules = computed(() => {
-            console.log("Пересчитываем склад с учетом бесконечных модулей...");
             return userModules.value.filter(m => m.equippedToId === null);
         });
 
-        const stashBlueprints = computed(() => {
-            console.log("Пересчитываем склад с учетом бесконечных модулей...", baseModules.value);
-            // Возвращаем все доступные игроку базовые чертежи
-            return baseModules.value;
+        // 2. Чертежи (всегда доступны)
+        const blueprints = computed(() => baseModules.value);
+
+        // 3. ФИНАЛЬНЫЙ СПИСОК ДЛЯ ИНВЕНТАРЯ (Чертежи + Модули в рюкзаке)
+        const fullInventoryList = computed(() => {
+            console.log("[STORE] Собираем общий список инвентаря...");
+            return [...blueprints.value, ...stashModules.value];
         });
 
         const equippedModules = (vanguardId: string) => computed(() => {
@@ -38,6 +42,61 @@ export const useInventoryStore = () => {
             return userModules.value.filter(m => m.equippedToId === vanguardId);
         });
 
+        const selectedModule = computed(() => {
+            if (!selectedModuleId.value) return null;
+            // Ищем и в рюкзаке, и в чертежах
+            return userModules.value.find(m => m.id === selectedModuleId.value) || 
+                baseModules.value.find(m => m.id === selectedModuleId.value || m.moduleId === selectedModuleId.value);
+        });
+
+        function selectModule(id: string | null) {
+            // Если пришел тот же ID, что уже выбран — сбрасываем в null
+            if (selectedModuleId.value === id) {
+                selectedModuleId.value = null;
+            } else {
+                selectedModuleId.value = id;
+            }
+        }
+
+        const canAddStarter = computed(() => {
+            const limits = {}; 
+            const current = {}; 
+
+            // ЗАЩИТА: Если данных о вангарде еще нет, возвращаем пустой объект
+            if (!currentVanguard.value || !currentVanguard.value.slots) {
+                return {}; 
+            }
+
+            // 1. Мапим лимиты по типу из текущего авангарда
+            currentVanguard.value.slots.forEach(slot => {
+                // Проверяем, что slot и type существуют, чтобы не упасть снова
+                const type = slot.slot?.code || slot.type; 
+                if (type) {
+                    limits[type] = (limits[type] || 0) + 1;
+                }
+            });
+
+            // 2. Считаем стартеры
+            const allItems = userModules.value;
+            allItems.forEach(item => {
+                if (item.rarity === RARITY.STARTER) {
+                    const type = item.slotType;
+                    current[type] = (current[type] || 0) + 1;
+                }
+            });
+
+            // 3. Формируем карту [type]: boolean
+            const result = {};
+            Object.keys(limits).forEach(type => {
+                result[type] = (current[type] || 0) < limits[type];
+            });
+
+            return result; 
+        });
+
+        function setBluePrints(modules: IModuleBase[]) {
+            baseModules.value = modules.map(m => new UserModule(m));
+        }
 
         function setModuleList(modules: IUserModule[]) {
             userModules.value = modules.map(m => new UserModule(m));
@@ -66,7 +125,7 @@ export const useInventoryStore = () => {
                 loading: isLoading
             });
             if (!res) return false
-            baseModules.value = res;
+            setBluePrints(res);
             return true;
         }
 
@@ -77,37 +136,85 @@ export const useInventoryStore = () => {
          * @param slotId ID слота (WEAPON_1, CORE и т.д.)
          */
         async function equipModule(moduleId: string, vanguardId: string, slotId: string) {
-            const res = await ExecutorRequest.exec(() => api.equip(moduleId, vanguardId, slotId), {
-                loading: isLoading
-            });
-            if(!res) return false
-            updateModuleInList(moduleId, res);
-            return true;
+            console.log(`[STORE] Экипировка в слот: ${slotId}`);
+
+            // 1. Проверяем, не занят ли слот. 
+            // Если занят — вызываем наш существующий метод снятия.
+            const occupant = userModules.value.find(m => m.vanguardSlotId === slotId);
+            
+            if (occupant && occupant.id !== moduleId) {
+                console.log(`[STORE] Слот занят. Вытесняем модуль: ${occupant.id}`);
+                // Вызываем unequip. Так как он async, лучше подождать, 
+                // чтобы массив пересобрался до того, как мы начнем ставить новый.
+                await unequipModule(occupant.id);
+            }
+
+            // 2. Ищем наш целевой модуль (или создаем из чертежа)
+            let index = userModules.value.findIndex(m => m.id === moduleId);
+            let moduleInstance: UserModule;
+
+            if (index === -1) {
+                // Логика чертежа
+                const bp = baseModules.value.find(b => b.id === moduleId || b.moduleId === moduleId);
+                if (!bp) return;
+
+                moduleInstance = new UserModule({
+                    ...bp,
+                    id: "temp_" + Math.random(), 
+                });
+                userModules.value.push(moduleInstance);
+            } else {
+                moduleInstance = userModules.value[index];
+            }
+
+            // 3. Устанавливаем новые данные
+            moduleInstance.equippedToId = vanguardId;
+            moduleInstance.vanguardSlotId = slotId;
+
+            // 4. Финальный пинок реактивности
+            userModules.value = [...userModules.value];
+            userModules.events.emit('changed', userModules.value);
         }
 
         async function unequipModule(moduleId: string) {
-            const res = await ExecutorRequest.exec(() => api.unequip(moduleId), {
-                loading: isLoading
-            });
+            // 1. Находим индекс предмета
+            const index = userModules.value.findIndex(m => m.id === moduleId);
+            if (index === -1) return;
 
-            if (res) {
-                // Обновляем модуль в списке. Теперь его equippedToId === null
-                updateModuleInList(moduleId, res);
-                return true;
-            }
-            return false;
+            // 2. Достаем сам объект (удаляем его из массива)
+            const [moduleInstance] = userModules.value.splice(index, 1);
+
+            // 3. Обновляем его статус
+            moduleInstance.vanguardSlotId = null;
+            moduleInstance.equippedToId = null;
+
+            // 4. Добавляем его В КОНЕЦ массива
+            userModules.value.push(moduleInstance);
+
+            // 5. Обновляем ссылку для срабатывания watch
+            userModules.value = [...userModules.value];
+            
+            // Пинаем эмиттер
+            userModules.events.emit('changed', userModules.value);
+
+            console.log(`[STORE] Модуль ${moduleId} перемещен в конец списка рюкзака`);
         }
 
         return {
             userModules,
             isLoading,
+            canAddStarter,
+            blueprints,
             getModules,
             getBluePrints,
             equipModule,
             stashModules,
             equippedModules,
-            stashBlueprints,
-            unequipModule
+            fullInventoryList,
+            unequipModule,
+            selectedModuleId,
+            selectedModule,
+            selectModule
         };
     });
 };

@@ -1,45 +1,66 @@
 // VanguardSlot.ts
-import { _decorator, Component, Node, Sprite, SpriteAtlas } from 'cc';
+import { _decorator, Component, Node, Sprite, SpriteAtlas, UIOpacity } from 'cc';
+import { ModuleItem } from '../../module/model/ModuleItem';
 const { ccclass, property } = _decorator;
 
 @ccclass('VanguardSlot')
-export class VanguardSlot extends Component {
-    @property(Sprite) bgSprite: Sprite = null!;      
-    @property(SpriteAtlas) slotAtlas: SpriteAtlas = null!; 
+export class VanguardSlot extends Component {   
+    @property(SpriteAtlas) slotIconAtlas: SpriteAtlas = null!; 
     @property(Node) moduleContainer: Node = null!;
-    slotId: string = "";
-
-    // --- ВОТ ЭТО НУЖНО ДОБАВИТЬ ---
+    @property(Sprite) slotTypeIcon: Sprite = null!;
     @property(Number)
     displayOrder: number = 0; 
-    // ------------------------------
 
-    private _type: string = "weapon"; 
+    slotId: string = "";
+    slotType: string = "weapon"; 
 
     public initSlot(type: string, id: string) {
-        this._type = type.toLowerCase(); 
+        this.slotType = type.toLowerCase(); 
         this.slotId = id;
-        // Можно сохранить id слота из БД, если понадобится для запросов
-        this.updateVisual(false); 
+        this.updateVisual(); 
     }
 
     public addModule(moduleNode: Node) {
         this.clear();
         moduleNode.parent = this.moduleContainer || this.node;
         moduleNode.setPosition(0, 0, 0);
-        this.updateVisual(true);
+        moduleNode.getComponent(ModuleItem).typeSprite.node.active = false;
+        this.updateVisual();
     }
 
     public clear() {
         const container = this.moduleContainer || this.node;
         container.removeAllChildren();
-        this.updateVisual(false);
+        this.updateVisual();
     }
 
-    public updateVisual(isFilled: boolean) {
-        if (!this.slotAtlas || !this.bgSprite) return;
-        const frameName = isFilled ? `${this._type}-filled` : this._type;
-        const frame = this.slotAtlas.getSpriteFrame(frameName);
-        if (frame) this.bgSprite.spriteFrame = frame;
+    public updateVisual() {
+        if (!this.slotIconAtlas) return;
+        const frameName = `${this.slotType}-icon`;
+        const frame = this.slotIconAtlas.getSpriteFrame(frameName);
+        if (frame) this.slotTypeIcon.spriteFrame = frame;
+    }
+
+    public canAccept(moduleType: string): boolean {
+        return this.slotType === moduleType.toLocaleLowerCase();
+    }
+
+    public setHighlightState(isSuitable: boolean, isDragging: boolean) {
+        let opacity = this.getComponent(UIOpacity);
+        if (!opacity) opacity = this.node.addComponent(UIOpacity);
+
+        if (!isDragging) {
+            // Возвращаем в нормальное состояние
+            opacity.opacity = 255;
+            // Если есть рамка, можно убрать свечение
+            return;
+        }
+
+        if (isSuitable) {
+            opacity.opacity = 255; // Подходящий слот яркий
+            // Тут можно добавить код для включения "свечения" или изменения цвета рамки
+        } else {
+            opacity.opacity = 60;  // Неподходящий слот затемняем
+        }
     }
 }
