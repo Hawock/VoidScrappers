@@ -1,84 +1,245 @@
-import { _decorator, Component, Node, Sprite, SpriteAtlas, Label, tween, Vec3, Color } from 'cc';
-import { RARITY } from 'db://assets/widgets/inventory/config/module.enum';
-import { IUserModule } from 'db://assets/widgets/inventory/types/IUSerModule';
+import { _decorator, Component, Node, Sprite, SpriteAtlas, Label, tween, Vec3, isValid, log, UIOpacity, EventTouch, Vec2, Tween } from 'cc';
+import { RARITY } from 'db://assets/entities/module/config/module.enum';
+import { RemoteImageLoader } from 'db://assets/shared/infra/remote-image-loader';
+import { UserModule } from './classess/module';
+import { watch } from 'db://assets/shared/infra/reactivity';
+import { useInventoryStore } from './inventory.store';
+import { InventoryManager } from 'db://assets/widgets/inventory/model/InventoryManager';
+
+
 const { ccclass, property } = _decorator;
 
 @ccclass('ModuleItem')
 export class ModuleItem extends Component {
+    // === АТЛАСЫ РЕДКОСТИ ===
     @property(SpriteAtlas) framesAtlas: SpriteAtlas = null!;
 
+    // === ПРЕДМЕТЫ GUI ===
+    @property({ type: Node }) spinnerNode: Node = null!;
+    @property(Node) blueprintNode: Node = null!;
+    // === КОМПОНЕНТЫ ОТОБРАЖЕНИЯ ===
     @property(Sprite) rarityBg: Sprite = null!;
     @property(Sprite) protocolFrameSprite: Sprite = null!;
-    @property(Sprite) countFrameSprite: Sprite = null!;
-
-    @property(Sprite) icon: Sprite = null!;
+    @property(Sprite) iconSprite: Sprite = null!;
     @property(Label) protocolLabel: Label = null!;
-    @property(Label) countLabel: Label = null!;
-
-    public data: IUserModule | null = null;
+    @property(SpriteAtlas) typeAtlas: SpriteAtlas = null!;
+    @property(Sprite) typeSprite: Sprite = null!;
+    // === ДАННЫЕ И СОСТОЯНИЕ ===
+    public data: UserModule;
+    private _unwatch: Function | null = null;
     private _isSelected = false;
-    
-    public init(data: IUserModule) {
+    private _isLoading = false;
+    private _inventoryStore = useInventoryStore();
+    private _canDrag = true;
+    private _pulseTween: Tween<Node> | null = null;
+    // === ПЕРЕМЕННЫЕ ДЛЯ INPUT ===
+    private _touchTimer: any = null;
+    private _isDragging = false;
+    private _startTouchPos: Vec2 = new Vec2();
+
+    // === МЕТОДЫ ИНИЦИАЛИЗАЦИИ ===
+
+    public init(data: UserModule) {
         this.data = data;
-
-        // 1. Установка рамок по Rarity
-        // Теперь rarity — это строка-ключ из твоего Enum (STARTER, COMMON...)
-        const rarityKey = data.rarity.toLowerCase();
-        const frameSprite = this.framesAtlas.getSpriteFrame(rarityKey);
-
-        if (frameSprite) {
-            this.rarityBg.spriteFrame = frameSprite;
-            this.protocolFrameSprite.spriteFrame = frameSprite;
-            this.countFrameSprite.spriteFrame = frameSprite;
+        
+        const rarityKey = (data.rarity || 'STARTER').toLowerCase();
+        const frame = this.framesAtlas.getSpriteFrame(rarityKey);
+        const frameType = this.typeAtlas.getSpriteFrame(`${data.slotType.toLowerCase()}-icon`);
+        if (frame) {
+            this.rarityBg.spriteFrame = frame;
+            this.protocolFrameSprite.spriteFrame = frame;
         }
-
-        // 2. Установка иконки из статичных данных модуля
-        // Используем spriteFrame из вложенного объекта module
-        if (data.module && data.module.spriteFrame) {
-            // Тут логика подгрузки иконки, например из атласа иконок:
-            // this.icon.spriteFrame = iconsAtlas.getSpriteFrame(data.module.spriteFrame);
-        }
+        if(frameType) this.typeSprite.spriteFrame = frameType;
 
         this.updateLabels();
     }
 
+    onEnable() {
+        this.updateVisualRemote();
+        this.setupReactivity();
+
+        // Подписываемся на события тача
+        this.node.on(Node.EventType.TOUCH_START, this.onTouchStart, this);
+        this.node.on(Node.EventType.TOUCH_MOVE, this.onTouchMove, this);
+        this.node.on(Node.EventType.TOUCH_END, this.onTouchEnd, this);
+        this.node.on(Node.EventType.TOUCH_CANCEL, this.onTouchEnd, this);
+    }
+
+    onDisable() {
+        if (this._unwatch) {
+            this._unwatch();
+            this._unwatch = null;
+        }
+        
+        // Отписываемся
+        this.node.off(Node.EventType.TOUCH_START, this.onTouchStart, this);
+        this.node.off(Node.EventType.TOUCH_MOVE, this.onTouchMove, this);
+        this.node.off(Node.EventType.TOUCH_END, this.onTouchEnd, this);
+        this.node.off(Node.EventType.TOUCH_CANCEL, this.onTouchEnd, this);
+        
+        this.cancelTouchTimer();
+    }
+
+    public setSelect(isSelected: boolean) {
+        // 1. Сначала всегда останавливаем старую анимацию
+        if (this._pulseTween) {
+            this._pulseTween.stop();
+            this._pulseTween = null;
+        }
+
+        if (isSelected) {
+            // 2. Запускаем "дыхание"
+            // Скейлим с 1.0 до 1.05 и обратно за 0.8 секунды
+            this._pulseTween = tween(this.node)
+                .to(0.8, { scale: new Vec3(1.05, 1.05, 1) }, { easing: 'sineInOut' })
+                .to(0.8, { scale: new Vec3(1, 1, 1) }, { easing: 'sineInOut' })
+                .union() // Объединяем в одну цепочку
+                .repeatForever() // Зацикливаем
+                .start();
+        } else {
+            // 3. Возвращаем в исходное состояние
+            this.node.setScale(new Vec3(1, 1, 1));
+        }
+    }
+
+    // === ОБРАБОТКА INPUT ===
+
+    private onTouchStart(event: EventTouch) {
+        if (!this._canDrag) return;
+
+        this._isDragging = false;
+        this._startTouchPos = event.getUILocation();
+
+        // Запускаем таймер на Лонг-клик (500мс)
+        this._touchTimer = setTimeout(() => {
+            this.onLongClick();
+        }, 500);
+    }
+
+    private cancelTouchTimer() {
+        if (this._touchTimer) {
+            clearTimeout(this._touchTimer);
+            this._touchTimer = null;
+        }
+    }
+
+    // --- ФИНАЛЬНЫЕ ДЕЙСТВИЯ ---
+
+    private onClick() {
+        log(`[UI] Клик: Модуль ${this.data.module.name}. Открываем панель протоколов...`);
+        // TODO: Эмит в менеджер для открытия правой панели
+    }
+
+    private onLongClick() {
+        log(`[UI] Лонг-клик: Информация о ${this.data.module.name}`);
+        // Можно добавить легкую вибрацию или всплывающее инфо
+    }
+
+    private startDrag(event: EventTouch) {
+        const manager = this.node.scene.getComponentInChildren(InventoryManager);
+        if (manager) {
+            manager.startDrag(
+                this.data, 
+                this.node.worldPosition, 
+                this.iconSprite.spriteFrame // Просто отдаем то, что у нас уже есть
+            );
+        }
+    }
+
+    // === ОСТАЛЬНАЯ ЛОГИКА (БЕЗ ИЗМЕНЕНИЙ) ===
+
+    private setupReactivity() {
+        this._unwatch = watch(this._inventoryStore.canAddStarter, (limits) => {
+            this.updateUI(limits);
+        });
+        this.updateUI(this._inventoryStore.canAddStarter.value);
+    }
+
+    private updateUI(limits: any) {
+        if (!this.data) return;
+        const isLimitReached = this.data.isBlueprint && !limits[this.data.slotType];
+        let op = this.node.getComponent(UIOpacity) || this.node.addComponent(UIOpacity);
+        op.opacity = isLimitReached ? 120 : 255;
+        this._canDrag = !isLimitReached;
+    }
+
     private updateLabels() {
         if (!this.data) return;
-
-        // Протоколы (Топ-лево)
+        
+        if(!("unlockedProtocols" in this.data)) return;
         const pCount = this.data.unlockedProtocols?.length || 0;
         this.protocolFrameSprite.node.active = pCount > 0;
         this.protocolLabel.string = pCount.toString();
+    }
 
-        // Бесконечность (Бот-райт)
-        // Теперь проверяем, что редкость равна STARTER
-        if (this.data.rarity === RARITY.STARTER) {
-            this.countFrameSprite.node.active = true;
-            this.countLabel.string = "∞";
+    private async updateVisualRemote() {
+        if (!this.data) return;
+        const url = this.data.module.spriteFrame || "";
+        if (!url) return;
+        if(this.data.isBlueprint) this.blueprintNode.active = true;
+        else this.blueprintNode.active = false;
+        this.setLoadingState({ isLoading: true, isError: false });
+        const spriteFrame = await RemoteImageLoader.loadSprite(url);
+
+        if (!isValid(this) || !this.node.activeInHierarchy) return;
+
+        if (spriteFrame) {
+            this.iconSprite.spriteFrame = spriteFrame;
+            this.setLoadingState({ isLoading: false, isError: false });
         } else {
-            this.countFrameSprite.node.active = false;
+            this.setLoadingState({ isLoading: false, isError: true });
         }
     }
-    /**
-     * Визуальное выделение модуля без создания новых нод
-     */
-    public setSelection(isActive: boolean) {
-        this._isSelected = isActive;
 
-        // Останавливаем старые анимации
-        tween(this.node).stop();
-
-        if (isActive) {
-            // Мягкая пульсация размера для эффекта выбора
-            tween(this.node)
-                .to(0.3, { scale: new Vec3(1.05, 1.05, 1) }, { easing: 'quadOut' })
-                .to(0.3, { scale: new Vec3(1.0, 1.0, 1) }, { easing: 'quadIn' })
-                .union()
-                .repeatForever()
-                .start();
-        } else {
-            // Возвращаем в исходное состояние
-            this.node.setScale(new Vec3(1, 1, 1));
+    private setLoadingState(state: { isLoading: boolean, isError: boolean }) {
+        this._isLoading = state.isLoading;
+        this.spinnerNode.active = state.isLoading;
+        this.iconSprite.node.active = !state.isLoading && !state.isError;
+        const showVisuals = !state.isLoading && !state.isError;
+        if (this.data) {
+            this.protocolFrameSprite.node.active = showVisuals;
         }
+    }
+
+    private onTouchMove(event: EventTouch) {
+        if (!this._canDrag) return;
+
+        const currentPos = event.getUILocation();
+        
+        // Если мы уже в режиме драга — просто шлем координаты менеджеру
+        if (this._isDragging) {
+            const manager = this.node.scene.getComponentInChildren(InventoryManager);
+            if (manager) {
+                manager.updateDrag(currentPos); // Прямой вызов!
+            }
+            return;
+        }
+
+        // Логика определения начала драга (если еще не начали)
+        const dist = Vec2.distance(this._startTouchPos, currentPos);
+        if (dist > 10) {
+            this.cancelTouchTimer();
+            this._isDragging = true;
+            this.startDrag(event);
+        }
+    }
+
+    private onTouchEnd(event: EventTouch) {
+        this.cancelTouchTimer();
+
+        if (this._isDragging) {
+            const manager = this.node.scene.getComponentInChildren(InventoryManager);
+            if (manager) {
+                // Передаем в менеджер, что мы закончили
+                // Мы можем просто вызвать метод из менеджера, который у тебя уже есть
+                // (только убедись, что он публичный)
+                manager.onGlobalEnd(event); 
+            }
+        } else {
+            const dist = Vec2.distance(this._startTouchPos, event.getUILocation());
+            if (dist < 7) this.onClick();
+        }
+        
+        this._isDragging = false;
     }
 }

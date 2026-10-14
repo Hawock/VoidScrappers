@@ -30,6 +30,7 @@ export default class ProfileAvatar extends Component {
     }
 
     refreshUI(userData: any) {
+        
         const user = userData || this.store.user.value;
         
         if (!user || !user.activeVanguard) return;

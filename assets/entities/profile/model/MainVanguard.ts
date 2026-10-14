@@ -8,7 +8,9 @@ export class MainVanguard extends Component {
     @property(Sprite) bodySprite: Sprite = null!;
     @property(SpriteAtlas) vanguardsAtlas: SpriteAtlas = null!;
 
-    private _profileStore = useProfileStore();
+    private get _profileStore() {
+        return useProfileStore();
+    }
 
     onEnable() {
         // 1. Подписываемся на изменения в рефе 'user'
