@@ -1,4 +1,5 @@
 import { BaseApiService } from "db://assets/shared/infra/api";
+import { SaveInventoryModulePayload } from "../dto/SaveInventoryModulePayload";
 
 export class InventoryApiService extends BaseApiService {
     public async getInventory() {
@@ -16,4 +17,9 @@ export class InventoryApiService extends BaseApiService {
     public getBlueprints() {
         return this.api.request.get("/inventory/blueprints");
     }
+
+    public saveInventory(modules: SaveInventoryModulePayload[]) {
+        return this.api.request.post("/inventory/save", { modules });
+    }
+
 }

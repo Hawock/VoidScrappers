@@ -36,11 +36,8 @@ export class MainMenuController extends Component {
 
     public async onOpenInventoryClick() {
         if (!this.inventoryPrefab || !this.uiLayer) {
-            console.error("MainMenuController: Проверь ссылки на префаб и UI Layer в инспекторе!");
             return;
         }
-
-        console.log("Загружаем данные инвентаря...");
         // Стор подхватится через геттер при вызове
         await Promise.all([this._inventoryStore.getModules(), this._inventoryStore.getBluePrints()]);
         console.log("Данные загружены!");
@@ -57,7 +54,7 @@ export class MainMenuController extends Component {
     }
 
     public inviteFriend(){
-        const friendId = "b00632b0-aa29-4727-b535-181a18ac5400";
+        const friendId = "3fe738e7-0d9c-4269-805a-322a3e6acc42";
         if (ColyseusManager.instance) {
             ColyseusManager.instance.sendInvite(friendId);
         } else {

@@ -1,9 +1,10 @@
-import { TARGET_TYPE } from "../comfig/target-type.enum"
-
 export interface EffectDto {
-    duration: number | null
-    effectId: string
-    id: number
-    targetType: TARGET_TYPE | null
-    value: number
+    id: string;
+    name: string;
+    description: string | null;
+    intentType: string | null;
+    statusIcon: string | null;
+    handlerKey: string;
+    hook: string;
+    expiration: string;
 }

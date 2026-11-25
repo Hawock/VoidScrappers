@@ -105,12 +105,11 @@ export class ModuleItem extends Component {
     // === ОБРАБОТКА INPUT ===
 
     private onTouchStart(event: EventTouch) {
-        if (!this._canDrag) return;
-
         this._isDragging = false;
         this._startTouchPos = event.getUILocation();
 
-        // Запускаем таймер на Лонг-клик (500мс)
+        if (!this._canDrag) return;
+
         this._touchTimer = setTimeout(() => {
             this.onLongClick();
         }, 500);
@@ -126,8 +125,9 @@ export class ModuleItem extends Component {
     // --- ФИНАЛЬНЫЕ ДЕЙСТВИЯ ---
 
     private onClick() {
-        log(`[UI] Клик: Модуль ${this.data.module.name}. Открываем панель протоколов...`);
-        // TODO: Эмит в менеджер для открытия правой панели
+        if (!this.data) return;
+        const id = this.data.id || this.data.moduleId;
+        this._inventoryStore.selectModule(id);
     }
 
     private onLongClick() {
@@ -237,7 +237,7 @@ export class ModuleItem extends Component {
             }
         } else {
             const dist = Vec2.distance(this._startTouchPos, event.getUILocation());
-            if (dist < 7) this.onClick();
+            if (dist < 10) this.onClick();
         }
         
         this._isDragging = false;

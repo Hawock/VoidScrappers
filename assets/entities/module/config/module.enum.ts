@@ -6,8 +6,8 @@ export enum MODULE_TYPE {
 }
 
 export enum RARITY {
-    STARTER = 'starter',
-    RARE = 'rare',
-    EPIC = 'epic',
-    LEGENDARY = 'legendary'
+    STARTER = 'STARTER',
+    RARE = 'RARE',
+    EPIC = 'EPIC',
+    LEGENDARY = 'LEGENDARY'
 }

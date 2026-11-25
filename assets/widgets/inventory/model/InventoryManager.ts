@@ -1,4 +1,4 @@
-import { _decorator, Component, EventTouch, Input, input, Node, Prefab, instantiate, UITransform, Vec2, Vec3, ScrollView, SpriteFrame } from 'cc';
+import { _decorator, Component, EventTouch, Input, input, Node, Prefab, instantiate, UITransform, Vec2, Vec3, ScrollView, SpriteFrame, Label } from 'cc';
 import { watch } from 'db://assets/shared/infra/reactivity';
 import { InventorySlot } from './InventorySlot';
 import { useInventoryStore } from 'db://assets/entities/module/model/inventory.store';
@@ -22,7 +22,7 @@ export class InventoryManager extends Component {
     @property(Node) vanguardSlotsNode: Node = null!; // Нода, где лежат слоты на роботе
     @property(Node) inventoryArea: Node = null!;    // Область рюкзака
     @property(ScrollView) inventoryScroll: ScrollView = null!;
-    
+
     // Наш новый компонент для призрака
     @property(ModuleDragItem) dragVisualComp: ModuleDragItem = null!;
 
@@ -38,7 +38,7 @@ export class InventoryManager extends Component {
 
         this.generateEmptyGrid(24);
 
-       this._watchers.push(watch(this._inventoryStore.fullInventoryList, (items) => {
+        this._watchers.push(watch(this._inventoryStore.fullInventoryList, (items) => {
             console.log(`[MANAGER] Список обновился, объектов: ${items.length}`);
             this.syncInventoryUI(items);
         }));
@@ -53,11 +53,10 @@ export class InventoryManager extends Component {
             }
         }));
 
-        this._watchers.push(watch(this._inventoryStore.selectedModuleId, () => {
-            console.log("[MANAGER] Смена выбора в сторе, обновляю визуал...");
+        this._watchers.push(watch(this._inventoryStore.selectedModule, () => {
+            console.log("[MANAGER] Смена модуля в сторе, обновляю визуал...");
             this.updateVisualSelection();
         }));
-
 
         // 2. Умная подписка на модули экипировки
         this._watchers.push(watch(this._profileStore.user, (user) => {
@@ -75,9 +74,23 @@ export class InventoryManager extends Component {
         input.on(Input.EventType.TOUCH_CANCEL, this.onGlobalEnd, this);
     }
 
+    public async onCloseClick() {
+        if (this._inventoryStore.isLoading.value) return;
+
+        const ok = await this._inventoryStore.commitInventory();
+        if (!ok) {
+            // Если сеть или сервер вернули ошибку — оставляем экран открытым, чтобы правки не пропали
+            return;
+        }
+
+        this._inventoryStore.selectModule(null);
+        this.node.active = false;
+    }
+
     private updateVisualSelection() {
-        const selectedId = this._inventoryStore.selectedModuleId.value;
-        
+        const mod = this._inventoryStore.selectedModule.value;
+        const selectedId = mod ? (mod.id || mod.moduleId) : null;
+
         // Собираем все компоненты ModuleItem, которые сейчас есть на сцене
         // (и в инвентаре, и в слотах авангарда)
         const allItems = this.node.getComponentsInChildren(ModuleItem);
@@ -89,11 +102,9 @@ export class InventoryManager extends Component {
             }
         });
     }
-    
+
 
     onEnable() {
-        console.log("MANAGER: Окно открыто, форсирую отрисовку...");
-        
         // Сначала убедимся, что сетка создана (если вдруг onLoad еще не отработал)
         if (this._slots.length === 0) this.generateEmptyGrid(24);
 
@@ -113,7 +124,7 @@ export class InventoryManager extends Component {
         // Очистка подписок при уничтожении менеджера
         this._watchers.forEach(unwatch => unwatch());
         this._watchers = [];
-        
+
         input.off(Input.EventType.TOUCH_MOVE, this.onGlobalMove, this);
         input.off(Input.EventType.TOUCH_END, this.onGlobalEnd, this);
         input.off(Input.EventType.TOUCH_CANCEL, this.onGlobalEnd, this);
@@ -141,11 +152,6 @@ export class InventoryManager extends Component {
                 if (itemComp) {
                     itemComp.init(data);
                     this._slots[index].addModule(moduleNode);
-                    
-                    // КЛИК ДЛЯ ВЫБОРА
-                    moduleNode.on(Node.EventType.TOUCH_END, () => {
-                        this._inventoryStore.selectModule(data.id || data.moduleId);
-                    }, this);
                 }
             }
         });
@@ -171,11 +177,6 @@ export class InventoryManager extends Component {
                     if (itemComp) {
                         itemComp.init(modData);
                         targetUI.addModule(moduleNode);
-
-                        // КЛИК ДЛЯ ВЫБОРА (на роботе тоже можно выбирать)
-                        moduleNode.on(Node.EventType.TOUCH_END, () => {
-                            this._inventoryStore.selectModule(modData.id || modData.moduleId);
-                        }, this);
                     }
                 }
             }
@@ -187,9 +188,13 @@ export class InventoryManager extends Component {
 
     public startDrag(data: UserModule, worldPos: Vec3, currentIcon: SpriteFrame | null) {
         this._draggedData = data;
-        
+
         // 1. Выбираем модуль в сторе
-        this._inventoryStore.selectModule(data.id || data.moduleId);
+        const id = data.id || data.moduleId;
+        if (this._inventoryStore.selectedModuleId.value !== id) {
+            console.log("Выбираем модуль", id);
+            this._inventoryStore.selectModule(id);
+        }
 
         // 2. СРАЗУ заставляем оригинал в сетке или на роботе пульсировать
         this.updateVisualSelection();
@@ -201,7 +206,7 @@ export class InventoryManager extends Component {
             this.dragVisualComp.node.setWorldPosition(worldPos);
             this.dragVisualComp.init(data);
             this.dragVisualComp.setIcon(currentIcon);
-            
+
             // ПРИЗРАК НЕ ПУЛЬСИРУЕТ - оставляем его как есть
             // this.dragVisualComp.setSelect(false); 
         }
@@ -215,7 +220,7 @@ export class InventoryManager extends Component {
 
         slots.forEach(slot => {
             // Слот подходит, если его тип совпадает с типом перетаскиваемого модуля
-            const isSuitable = slot.slotType.toLocaleLowerCase() === draggedType.toLocaleLowerCase();
+            const isSuitable = slot.slotType.toUpperCase() === draggedType.toUpperCase();
             slot.setHighlightState(isSuitable, isDragging);
         });
     }
@@ -230,17 +235,17 @@ export class InventoryManager extends Component {
         // Конвертация координат (самый надежный способ для UI)
         const parentUITrans = this.node.getComponent(UITransform)!;
         const localPos = parentUITrans.convertToNodeSpaceAR(new Vec3(screenPos.x, screenPos.y, 0));
-        
+
         // console.log("Ghost Moving To:", localPos.x, localPos.y);
         this.dragVisualComp.node.setPosition(localPos);
     }
 
     private onGlobalMove(event: EventTouch) {
         // ЛОГ ДО ПРОВЕРКИ
-        console.log("Global Move Fired"); 
+        console.log("Global Move Fired");
 
         if (!this.dragVisualComp) return;
-        
+
         // Если этот лог не пишется, значит node.active почему-то false
         if (!this.dragVisualComp.node.active) {
             // console.log("Move ignored: Ghost node is inactive");
@@ -250,7 +255,7 @@ export class InventoryManager extends Component {
         const screenPos = event.getUILocation();
         const parentUITrans = this.node.getComponent(UITransform)!;
         const localPos = parentUITrans.convertToNodeSpaceAR(new Vec3(screenPos.x, screenPos.y, 0));
-        
+
         console.log("Ghost Pos:", localPos.x, localPos.y);
         this.dragVisualComp.node.setPosition(localPos);
     }
@@ -285,16 +290,16 @@ export class InventoryManager extends Component {
 
         for (const slot of slots) {
             if (this.isPosInNode(touchPos, slot.node)) {
-                
+
                 // 1. ПРОВЕРКА ТИПА (Weapon, Core и т.д.)
-                if (slot.slotType.toLocaleLowerCase() !== this._draggedData.slotType.toLocaleLowerCase()) {
+                if (slot.slotType.toUpperCase() !== this._draggedData.slotType.toUpperCase()) {
                     console.warn(`[D&D] Тип не совпадает! Слот: ${slot.slotType}, Модуль: ${this._draggedData.slotType}`);
-                    return; 
+                    return;
                 }
 
                 // 2. ПРОВЕРКА ЛИМИТА СТАРТЕРОВ
-                if (this._draggedData.rarity === RARITY.STARTER && !this._draggedData.equippedToId) {
-                    const canAdd = this._inventoryStore.canAddStarter.value[slot.slotType];
+                if (this._draggedData.rarity.toLowerCase() === RARITY.STARTER.toUpperCase() && !this._draggedData.equippedToId) {
+                    const canAdd = this._inventoryStore.canAddStarter.value[slot.slotType.toUpperCase()];
                     if (!canAdd) {
                         console.error(`[D&D] Лимит стартеров для ${slot.slotType} исчерпан!`);
                         return;
@@ -304,7 +309,7 @@ export class InventoryManager extends Component {
                 // 3. ОТПРАВКА В СТОР
                 // Если id нет (это чертеж), берем moduleId
                 const idToEquip = this._draggedData.id || this._draggedData.moduleId;
-                
+
                 console.log(`[D&D] Экипируем ${idToEquip} в слот ${slot.slotId}`);
                 this._inventoryStore.equipModule(idToEquip, activeVanguard.id, slot.slotId);
                 return;
@@ -319,7 +324,7 @@ export class InventoryManager extends Component {
 
         // Получаем ограничивающую рамку ноды в мировых координатах
         const rect = uiTrans.getBoundingBoxToWorld();
-        
+
         // Проверяем, входит ли точка тача (worldPos) в этот прямоугольник
         return rect.contains(worldPos);
     }
