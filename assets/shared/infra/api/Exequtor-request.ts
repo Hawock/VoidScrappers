@@ -1,4 +1,3 @@
-import type { AxiosResponse } from "axios";
 import { Ref } from "../reactivity";
 import { NOTIFICATION_SEVERITIES, useNotifications } from "../notifications";
 import { SERVER_STATUS } from "./server-statuses.enum";
@@ -35,7 +34,7 @@ export class ExecutorRequest {
     this.notifications.addNotification(success_message, NOTIFICATION_SEVERITIES.Success);
   }
 
-  private static processResponse(response: AxiosResponse, options?: ExecutorExecOptions) {
+  private static processResponse(response: any, options?: ExecutorExecOptions) {
     if (SERVER_STATUS.OK.includes(Number(response.status))) {
       if (options?.success_message) {
         this.notify(options.success_message);

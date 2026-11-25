@@ -2,6 +2,7 @@ import { _decorator, Component, sys, director, Node, Label, Prefab } from 'cc';
 import { GuestLoginRequestDto, useProfileStore, User } from '../../entities/profile';
 import { useDialogs } from '../../shared/ui';
 import { ColyseusManager } from '../../app/ColyseusManager';
+import { useConfigStore } from '../../shared/app-config';
 
 const { ccclass, property } = _decorator;
 
@@ -42,6 +43,12 @@ export class Bootstrapper extends Component {
         if (!loginResult) return console.error("Ошибка при попытке входа гостя!");
         const user = await this.profileStore.getFullProfile();
         if (!user) return console.error("Ошибка при загрузке профиля после входа!");
+
+        const configStore = useConfigStore();
+        configStore.applyCachedConfig();
+        this.updateStatus("Синхронизация конфигурации...");
+        await configStore.syncConfig();
+
         this.selectStartVanguard(user.needsInitialSelection);
     }
 
