@@ -182,6 +182,10 @@
     "statusLabel": {
       "__id__": 6
     },
+    "storeInspectorPrefab": {
+      "__uuid__": "9ec70238-84d8-4dac-9200-92e65cab3f0f",
+      "__expectedType__": "cc.Prefab"
+    },
     "vanguardSelectionPrefab": {
       "__uuid__": "1a7db895-7e73-46f7-aeba-05efbefef15a",
       "__expectedType__": "cc.Prefab"

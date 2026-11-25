@@ -1,8 +1,10 @@
-import { _decorator, Component, sys, director, Node, Label, Prefab } from 'cc';
+import { _decorator, Component, sys, director, Node, Label, Prefab, instantiate } from 'cc';
 import { GuestLoginRequestDto, useProfileStore, User } from '../../entities/profile';
 import { useDialogs } from '../../shared/ui';
 import { ColyseusManager } from '../../app/ColyseusManager';
 import { useConfigStore } from '../../shared/app-config';
+import { StoreDevtoolsService } from '../../shared/infra/store-devtools/store-devtools.service';
+import { DEV } from 'cc/env';
 
 const { ccclass, property } = _decorator;
 
@@ -26,6 +28,7 @@ export class Bootstrapper extends Component {
     }
 
     async initGame() {
+        if(DEV) StoreDevtoolsService.exposeToWindow()
         let deviceId = sys.localStorage.getItem('deviceId');
 
         if (!deviceId) {
@@ -48,7 +51,6 @@ export class Bootstrapper extends Component {
         configStore.applyCachedConfig();
         this.updateStatus("Синхронизация конфигурации...");
         await configStore.syncConfig();
-
         this.selectStartVanguard(user.needsInitialSelection);
     }
 
