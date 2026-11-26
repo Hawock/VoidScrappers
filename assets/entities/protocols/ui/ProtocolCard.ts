@@ -1,6 +1,7 @@
 import { _decorator, Component, Node, Sprite, SpriteAtlas, Label, RichText, isValid } from 'cc';
-import { RemoteImageLoader } from 'db://assets/shared/infra/remote-image-loader';
+
 import { ProtocolEnt } from '../model/classess/protocol.ent';
+import { RemoteImageLoader } from 'db://assets/shared/infra/remote-image-loader';
 
 const { ccclass, property } = _decorator;
 

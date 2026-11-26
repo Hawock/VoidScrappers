@@ -41,7 +41,7 @@ export const useInventoryStore = () => {
 
         const equippedModules = (vanguardId: string) => computed(() => {
             console.log("ID авангарда", vanguardId)
-            console.log("Доступные содули", userModules.value)
+            console.log("Доступные модули", userModules.value)
             return userModules.value.filter(m => m.equippedToId === vanguardId);
         });
 
@@ -64,15 +64,16 @@ export const useInventoryStore = () => {
         const canAddStarter = computed(() => {
             const limits = {};
             const current = {};
-
+            console.log("[STORE] Проверяем, можно ли добавить стартер...", currentVanguard.value.vanguard.vanguardSlots);
             // ЗАЩИТА: Если данных о вангарде еще нет, возвращаем пустой объект
-            if (!currentVanguard.value || !currentVanguard.value.slots) {
+            if (!currentVanguard.value || !currentVanguard.value.vanguard.vanguardSlots) {
                 return {};
             }
 
             // 1. Мапим лимиты по типу из текущего авангарда
-            currentVanguard.value.slots.forEach(slot => {
+            currentVanguard.value.vanguard.vanguardSlots.forEach(slot => {
                 // Проверяем, что slot и type существуют, чтобы не упасть снова
+                console.log(slot.slot?.code || slot.type)
                 const type = slot.slot?.code || slot.type;
                 if (type) {
                     limits[type] = (limits[type] || 0) + 1;
@@ -105,17 +106,7 @@ export const useInventoryStore = () => {
             userModules.value = modules.map(m => new UserModule(m));
         }
 
-        function updateModuleInList(moduleId: string, module: IUserModule) {
-            const index = userModules.value.findIndex(m => m.id === moduleId);
-            if (index !== -1) {
-                userModules.value[index] = new UserModule(module);
-                userModules.value = [...userModules.value];
-                userModules.events.emit('changed', userModules.value);
-            }
-        }
-
         // --- ACTIONS ---
-
         // Загрузка всех модулей пользователя из БД
         async function getModules() {
             console.log("Вычисляем текущего вангарда...", profileStore.user.value?.activeVanguard.vanguard.name);

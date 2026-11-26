@@ -76,13 +76,11 @@ export class InventoryManager extends Component {
 
     public async onCloseClick() {
         if (this._inventoryStore.isLoading.value) return;
-
         const ok = await this._inventoryStore.commitInventory();
         if (!ok) {
             // Если сеть или сервер вернули ошибку — оставляем экран открытым, чтобы правки не пропали
             return;
         }
-
         this._inventoryStore.selectModule(null);
         this.node.active = false;
     }
