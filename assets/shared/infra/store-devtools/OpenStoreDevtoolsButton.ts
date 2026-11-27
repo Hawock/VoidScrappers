@@ -65,6 +65,10 @@ export class OpenStoreDevtoolsButton extends Component {
                 color: #e5e7eb;
             }
             #pc-devtools.open { display: grid; }
+            #pc-devtools.fullscreen {
+                bottom: 10px;
+                height: calc(100vh - 20px);
+            }
             #pc-devtools-list {
                 overflow-y: auto;
                 display: flex;
@@ -132,6 +136,21 @@ export class OpenStoreDevtoolsButton extends Component {
                 padding: 1px 3px;
             }
             .pc-row-toggle:hover { background: rgba(255, 255, 255, 0.08); }
+            .pc-copy-btn {
+                margin-left: 6px;
+                padding: 1px 6px;
+                border-radius: 4px;
+                border: 1px solid rgba(255, 255, 255, 0.16);
+                background: rgba(255, 255, 255, 0.06);
+                color: #9ca3af;
+                font-family: inherit;
+                font-size: 11px;
+                cursor: pointer;
+            }
+            .pc-copy-btn:hover {
+                background: rgba(255, 255, 255, 0.15);
+                color: #f3f4f6;
+            }
             .pc-arrow {
                 display: inline-block;
                 width: 14px;
@@ -160,7 +179,7 @@ export class OpenStoreDevtoolsButton extends Component {
                     <strong id="pc-devtools-title">Store</strong>
                     <div id="pc-devtools-actions">
                         <button id="pc-devtools-refresh" class="pc-store-btn">Обновить</button>
-                        <button id="pc-devtools-copy" class="pc-store-btn">Копировать</button>
+                        <button id="pc-devtools-expand" class="pc-store-btn">Расширить</button>
                     </div>
                 </div>
                 <div id="pc-devtools-tree"></div>
@@ -171,8 +190,8 @@ export class OpenStoreDevtoolsButton extends Component {
         const listEl = root.querySelector('#pc-devtools-list') as HTMLElement;
         const titleEl = root.querySelector('#pc-devtools-title') as HTMLElement;
         const treeEl = root.querySelector('#pc-devtools-tree') as HTMLElement;
+        const expandBtn = root.querySelector('#pc-devtools-expand') as HTMLButtonElement;
         let selectedId: string | null = null;
-        let currentState: Record<string, unknown> = {};
 
         const getApi = () =>
             (window as any).__PINACOLADA_DEVTOOLS__ || (window.parent as any)?.__PINACOLADA_DEVTOOLS__;
@@ -235,9 +254,22 @@ export class OpenStoreDevtoolsButton extends Component {
             meta.className = 'pc-meta';
             meta.textContent = isArray ? `Array(${entries.length})` : `Object(${entries.length})`;
 
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'pc-copy-btn';
+            copyBtn.textContent = 'Копировать';
+            copyBtn.onclick = (e) => {
+                e.stopPropagation();
+                navigator.clipboard?.writeText(JSON.stringify(val, null, 2));
+                copyBtn.textContent = '✓';
+                setTimeout(() => {
+                    copyBtn.textContent = 'Копировать';
+                }, 800);
+            };
+
             toggle.appendChild(arrow);
             toggle.appendChild(kSpan);
             toggle.appendChild(meta);
+            toggle.appendChild(copyBtn);
 
             const childrenBox = document.createElement('div');
             childrenBox.className = 'pc-children';
@@ -264,14 +296,13 @@ export class OpenStoreDevtoolsButton extends Component {
             treeEl.innerHTML = '';
             if (!api || !selectedId) {
                 titleEl.textContent = 'Нет стора';
-                currentState = {};
                 return;
             }
             const snap = api.get(selectedId);
-            currentState = snap?.state ?? {};
+            const state: Record<string, unknown> = snap?.state ?? {};
             titleEl.textContent = selectedId;
 
-            const rootEntries = Object.entries(currentState);
+            const rootEntries = Object.entries(state);
             if (rootEntries.length === 0) {
                 treeEl.textContent = '{}';
                 return;
@@ -307,8 +338,9 @@ export class OpenStoreDevtoolsButton extends Component {
         this._refreshFn = renderList;
 
         (root.querySelector('#pc-devtools-refresh') as HTMLElement).onclick = () => renderList();
-        (root.querySelector('#pc-devtools-copy') as HTMLElement).onclick = () => {
-            navigator.clipboard?.writeText(JSON.stringify(currentState, null, 2));
+        expandBtn.onclick = () => {
+            const isFull = root.classList.toggle('fullscreen');
+            expandBtn.textContent = isFull ? 'Свернуть' : 'Расширить';
         };
 
         renderList();
