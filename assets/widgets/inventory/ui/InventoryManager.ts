@@ -8,6 +8,8 @@ import { ModuleDragItem } from 'db://assets/entities/module/model/ModuleDragItem
 import { RARITY } from 'db://assets/entities/module/config/module.enum';
 import { useLoadoutStore } from 'db://assets/entities/loadout/model/loadout.store';
 import { InventorySlot } from 'db://assets/entities/inventory/ui/InventorySlot';
+import { useConfigStore } from 'db://assets/shared/app-config';
+import { useDialogs } from 'db://assets/shared/ui';
 
 const { ccclass, property } = _decorator;
 
@@ -73,6 +75,24 @@ export class InventoryManager extends Component {
 
     public async onCloseClick() {
         if (this._inventoryStore.isLoading.value) return;
+
+        const required = useConfigStore().requiredEquippedProtocols.value;
+        const current = this._inventoryStore.totalEquippedProtocolsCount.value;
+
+        if (current < required) {
+            const confirmed = await useDialogs().showDialog({
+                header: 'НЕПОЛНЫЙ КОМПЛЕКТ ПРОТОКОЛОВ',
+                text: `Выбрано протоколов: ${current} из ${required}. Выйти из снаряжения сейчас?`,
+                isConfirm: true,
+                confirmBtnText: 'ВЫЙТИ',
+                rejectBtnText: 'ОСТАТЬСЯ',
+            });
+
+            if (!confirmed) {
+                return;
+            }
+        }
+
         const ok = await this._inventoryStore.commitInventory();
         if (!ok) {
             return;
