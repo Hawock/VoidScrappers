@@ -1,5 +1,5 @@
 import { RARITY } from "../../config/module.enum"
-import { IModuleBase } from "../../types/IModuleBase"
+import { ModuleDto } from "../../dto/module.dto"
 import { VanguardSLotEnt } from "../../../vanguard-slot/model/classess/vanguard-slot.ent"
 import { VanguardEnt } from "../../../vanguard/model/classess/vanguard.ent"
 import { ProtocolEnt } from "../../../protocols/model/classess/protocol.ent"
@@ -13,7 +13,7 @@ export class ModuleBase {
     slotId: string
     spriteFrame: string
     vanguard: VanguardEnt
-    constructor(data: IModuleBase) {
+    constructor(data: ModuleDto) {
         this.id = data.id;
         this.name = data.name;
         this.protocols = data.protocols.map((protocol) => new ProtocolEnt(protocol));

@@ -3,8 +3,8 @@ import { RARITY } from 'db://assets/entities/module/config/module.enum';
 import { RemoteImageLoader } from 'db://assets/shared/infra/remote-image-loader';
 import { UserModule } from './classess/module';
 import { watch } from 'db://assets/shared/infra/reactivity';
-import { useInventoryStore } from './inventory.store';
-import { InventoryManager } from 'db://assets/widgets/inventory/model/InventoryManager';
+import { useInventoryStore } from '../../inventory/model/inventory.store';
+import { InventoryManager } from 'db://assets/widgets/inventory/ui/InventoryManager';
 
 
 const { ccclass, property } = _decorator;

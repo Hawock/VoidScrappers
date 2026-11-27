@@ -1,5 +1,5 @@
 import { BaseApiService } from "db://assets/shared/infra/api";
-import { SaveInventoryModulePayload } from "../dto/SaveInventoryModulePayload";
+import { SaveInventoryModulePayload } from "./dto/SaveInventoryModulePayload";
 
 export class InventoryApiService extends BaseApiService {
     public async getInventory() {

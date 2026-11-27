@@ -1,96 +1,76 @@
 import { PinaColada } from "db://assets/shared/infra/PinaColada";
 import { ref, computed } from "db://assets/shared/infra/reactivity";
-
 import { ExecutorRequest } from "db://assets/shared/infra/api";
 import { InventoryApiService } from "../api/inventory.api";
-import { IUserModule } from "../types/IUserModule";
-import { UserModule } from "./classess/module";
-import { useProfileStore } from "../../profile";
-import { RARITY } from "../config/module.enum";
-import { IModuleBase } from "../types/IModuleBase";
+import { SaveInventoryModulePayload } from "../api/dto/SaveInventoryModulePayload";
+import { UserModule } from "../../module/model/classess/module";
+import { RARITY } from "../../module/config/module.enum";
 import { ProtocolEnt } from "../../protocols/model/classess/protocol.ent";
-import { SaveInventoryModulePayload } from "../dto/SaveInventoryModulePayload";
-
+import { useLoadoutStore } from "../../loadout/model/loadout.store";
+import { ModuleDto } from "../../module/dto/module.dto";
+import { UserModuleDto } from "../../module/dto/user-module.dto";
 
 export const useInventoryStore = () => {
     return PinaColada.instance.useStore('inventory', () => {
-        const profileStore = useProfileStore();
+        const loadoutStore = useLoadoutStore();
         const api = new InventoryApiService();
-        const currentVanguard = computed(() => {
-            return profileStore.user.value?.activeVanguard
-        }
-        );
+
+        const currentVanguard = computed(() => loadoutStore.loadout.value);
+
         // --- STATE ---
         const baseModules = ref<UserModule[]>([]);
         const userModules = ref<UserModule[]>([]);
         const isLoading = ref(false);
         const selectedModuleId = ref<string | null>(null);
-        // 1. Модули, которые НЕ надеты (лежат в рюкзаке)
+
         const stashModules = computed(() => {
             return userModules.value.filter(m => m.equippedToId === null);
         });
 
-        // 2. Чертежи (всегда доступны)
         const blueprints = computed(() => baseModules.value);
 
-        // 3. ФИНАЛЬНЫЙ СПИСОК ДЛЯ ИНВЕНТАРЯ (Чертежи + Модули в рюкзаке)
         const fullInventoryList = computed(() => {
-            console.log("[STORE] Собираем общий список инвентаря...");
             return [...blueprints.value, ...stashModules.value];
         });
 
         const equippedModules = (vanguardId: string) => computed(() => {
-            console.log("ID авангарда", vanguardId)
-            console.log("Доступные модули", userModules.value)
             return userModules.value.filter(m => m.equippedToId === vanguardId);
         });
 
         const selectedModule = computed(() => {
             if (!selectedModuleId.value) return null;
-            // Ищем и в рюкзаке, и в чертежах
             return userModules.value.find(m => m.id === selectedModuleId.value) ||
                 baseModules.value.find(m => m.id === selectedModuleId.value || m.moduleId === selectedModuleId.value);
         });
 
         function selectModule(id: string | null) {
-            // Если пришел тот же ID, что уже выбран — сбрасываем в null
-            if (selectedModuleId.value === id) {
-                selectedModuleId.value = null;
-            } else {
-                selectedModuleId.value = id;
-            }
+            selectedModuleId.value = selectedModuleId.value === id ? null : id;
         }
 
         const canAddStarter = computed(() => {
-            const limits = {};
-            const current = {};
-            console.log("[STORE] Проверяем, можно ли добавить стартер...", currentVanguard.value.vanguard.vanguardSlots);
-            // ЗАЩИТА: Если данных о вангарде еще нет, возвращаем пустой объект
-            if (!currentVanguard.value || !currentVanguard.value.vanguard.vanguardSlots) {
+            const limits: Record<string, number> = {};
+            const current: Record<string, number> = {};
+            const slots = currentVanguard.value?.slots;
+
+            if (!slots || slots.length === 0) {
                 return {};
             }
 
-            // 1. Мапим лимиты по типу из текущего авангарда
-            currentVanguard.value.vanguard.vanguardSlots.forEach(slot => {
-                // Проверяем, что slot и type существуют, чтобы не упасть снова
-                console.log(slot.slot?.code || slot.type)
-                const type = slot.slot?.code || slot.type;
+            slots.forEach(slot => {
+                const type = slot.slot?.code;
                 if (type) {
                     limits[type] = (limits[type] || 0) + 1;
                 }
             });
 
-            // 2. Считаем стартеры
-            const allItems = userModules.value;
-            allItems.forEach(item => {
+            userModules.value.forEach(item => {
                 if (item.rarity === RARITY.STARTER) {
                     const type = item.slotType;
                     current[type] = (current[type] || 0) + 1;
                 }
             });
 
-            // 3. Формируем карту [type]: boolean
-            const result = {};
+            const result: Record<string, boolean> = {};
             Object.keys(limits).forEach(type => {
                 result[type] = (current[type] || 0) < limits[type];
             });
@@ -98,22 +78,21 @@ export const useInventoryStore = () => {
             return result;
         });
 
-        function setBluePrints(modules: IModuleBase[]) {
+        function setBluePrints(modules: ModuleDto[]) {
             baseModules.value = modules.map(m => new UserModule(m));
         }
 
-        function setModuleList(modules: IUserModule[]) {
+        function setModuleList(modules: UserModuleDto[]) {
             userModules.value = modules.map(m => new UserModule(m));
         }
 
         // --- ACTIONS ---
-        // Загрузка всех модулей пользователя из БД
         async function getModules() {
-            console.log("Вычисляем текущего вангарда...", profileStore.user.value?.activeVanguard.vanguard.name);
+            console.log("Вычисляем текущего вангарда...", currentVanguard.value?.vanguardName);
             const res = await ExecutorRequest.exec(() => api.getInventory(), {
                 loading: isLoading
             });
-            if (!res) return false
+            if (!res) return false;
             setModuleList(res);
             return true;
         }
@@ -122,37 +101,22 @@ export const useInventoryStore = () => {
             const res = await ExecutorRequest.exec(() => api.getBlueprints(), {
                 loading: isLoading
             });
-            if (!res) return false
+            if (!res) return false;
             setBluePrints(res);
             return true;
         }
 
-        /**
-         * Экипировка модуля в слот
-         * @param moduleId UUID модуля
-         * @param vanguardId ID авангарда (на кого надеваем)
-         * @param slotId ID слота (WEAPON_1, CORE и т.д.)
-         */
         async function equipModule(moduleId: string, vanguardId: string, slotId: string) {
-            console.log(`[STORE] Экипировка в слот: ${slotId}`);
-
-            // 1. Проверяем, не занят ли слот. 
-            // Если занят — вызываем наш существующий метод снятия.
             const occupant = userModules.value.find(m => m.vanguardSlotId === slotId);
 
             if (occupant && occupant.id !== moduleId) {
-                console.log(`[STORE] Слот занят. Вытесняем модуль: ${occupant.id}`);
-                // Вызываем unequip. Так как он async, лучше подождать, 
-                // чтобы массив пересобрался до того, как мы начнем ставить новый.
                 await unequipModule(occupant.id);
             }
 
-            // 2. Ищем наш целевой модуль (или создаем из чертежа)
             let index = userModules.value.findIndex(m => m.id === moduleId);
             let moduleInstance: UserModule;
 
             if (index === -1) {
-                // Логика чертежа
                 const bp = baseModules.value.find(b => b.id === moduleId || b.moduleId === moduleId);
                 if (!bp) return;
 
@@ -165,40 +129,26 @@ export const useInventoryStore = () => {
                 moduleInstance = userModules.value[index];
             }
 
-            // 3. Устанавливаем новые данные
             moduleInstance.equippedToId = vanguardId;
             moduleInstance.vanguardSlotId = slotId;
 
-            // 4. Финальный пинок реактивности
             userModules.value = [...userModules.value];
             userModules.events.emit('changed', userModules.value);
         }
 
         async function unequipModule(moduleId: string) {
-            // 1. Находим индекс предмета
             const index = userModules.value.findIndex(m => m.id === moduleId);
             if (index === -1) return;
 
-            // 2. Достаем сам объект (удаляем его из массива)
             const [moduleInstance] = userModules.value.splice(index, 1);
-
-            // 3. Обновляем его статус
             moduleInstance.vanguardSlotId = null;
             moduleInstance.equippedToId = null;
-
-            // 4. Добавляем его В КОНЕЦ массива
             userModules.value.push(moduleInstance);
 
-            // 5. Обновляем ссылку для срабатывания watch
             userModules.value = [...userModules.value];
-
-            // Пинаем эмиттер
             userModules.events.emit('changed', userModules.value);
-
-            console.log(`[STORE] Модуль ${moduleId} перемещен в конец списка рюкзака`);
         }
 
-        // Общее кол-во выбранных протоколов на надетых модулях текущего авангарда
         const totalEquippedProtocolsCount = computed(() => {
             const vanguardId = currentVanguard.value?.id;
             if (!vanguardId) return 0;
@@ -210,9 +160,7 @@ export const useInventoryStore = () => {
 
         function getMaxProtocols(mod: UserModule | null): number {
             if (!mod) return 0;
-            const baseLimit = mod.module.slot?.maxProtocols ?? 3;
-            // В будущем здесь прибавим бонус от талантов currentVanguard.value
-            return baseLimit;
+            return mod.module.slot?.maxProtocols ?? 3;
         }
 
         function addProtocolToModule(userModuleId: string, protocol: ProtocolEnt) {
@@ -263,9 +211,9 @@ export const useInventoryStore = () => {
 
             setModuleList(res);
             userModules.events.emit('changed', userModules.value);
+            await loadoutStore.fetchLoadout();
             return true;
         }
-
 
         return {
             userModules,

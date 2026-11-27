@@ -3,7 +3,7 @@ import { VanguardSlotDto } from "../../vanguard-slot/model/dto/vanguard-slot.dto
 import { VanguardDto } from "../../vanguard/dto/vangard.dto"
 import { RARITY } from "../config/module.enum"
 
-export interface IModuleBase {
+export interface ModuleDto {
     id: string
     name: string
     protocols: ProtocolDto[]

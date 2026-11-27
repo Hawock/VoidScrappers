@@ -1,7 +1,7 @@
 import { ProtocolEnt } from "../../../protocols/model/classess/protocol.ent";
 import { RARITY } from "../../config/module.enum";
-import { IModuleBase } from "../../types/IModuleBase";
-import { IUserModule } from "../../types/IUserModule";
+import { ModuleDto } from "../../dto/module.dto";
+import { UserModuleDto } from "../../dto/user-module.dto";
 import { ModuleBase } from "./module-base";
 
 export class UserModule {
@@ -25,7 +25,7 @@ export class UserModule {
         return this.slotType?.toUpperCase() === 'CORE' ? 1 : 3;
     }
 
-    constructor(data: IUserModule | IModuleBase) {
+    constructor(data: UserModuleDto | ModuleDto) {
         if ("module" in data) { //физические модули
             this.id = data.id;
             this.moduleId = data.moduleId;

@@ -57,7 +57,7 @@ export class PlayerSlot extends Component {
 
         // Шлем запрос на сервер через наш ColyseusManager
         if (ColyseusManager.instance) {
-            ColyseusManager.instance.sendInvite("b00632b0-aa29-4727-b535-181a18ac5400")
+            ColyseusManager.instance.sendInvite("3fe738e7-0d9c-4269-805a-322a3e6acc42")
         }
     }
 }

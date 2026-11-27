@@ -3,7 +3,7 @@ import { useDialogs } from '../../shared/ui/dialog';
 import { useRaidLauncher } from '../../feature/raid-launcher/model/raid-launcher.feature';
 import { ColyseusManager } from '../../app/ColyseusManager';
 import { useProfileStore } from '../../entities/profile';
-import { useInventoryStore } from '../../entities/module/model/inventory.store';
+import { useInventoryStore } from '../../entities/inventory/model/inventory.store';
 
 const { ccclass, property } = _decorator;
 

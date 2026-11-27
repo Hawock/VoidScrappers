@@ -1,10 +1,11 @@
-import { _decorator, Component, sys, director, Node, Label, Prefab, instantiate } from 'cc';
-import { GuestLoginRequestDto, useProfileStore, User } from '../../entities/profile';
+import { DEV } from 'cc/env';
+import { _decorator, Component, sys, director, Label, Prefab } from 'cc';
+import { GuestLoginRequestDto, useProfileStore } from '../../entities/profile';
 import { useDialogs } from '../../shared/ui';
 import { ColyseusManager } from '../../app/ColyseusManager';
 import { useConfigStore } from '../../shared/app-config';
 import { StoreDevtoolsService } from '../../shared/infra/store-devtools/store-devtools.service';
-import { DEV } from 'cc/env';
+import { useLoadoutStore } from '../../entities/loadout/model/loadout.store';
 
 const { ccclass, property } = _decorator;
 
@@ -14,7 +15,9 @@ export class Bootstrapper extends Component {
     statusLabel: Label = null; 
     @property(Prefab)
     vanguardSelectionPrefab: Prefab = null; 
+
     private profileStore = useProfileStore();
+    private loadoutStore = useLoadoutStore();
 
     async start() {
         window['cc'] = cc;
@@ -28,7 +31,7 @@ export class Bootstrapper extends Component {
     }
 
     async initGame() {
-        if(DEV) StoreDevtoolsService.exposeToWindow()
+        if (DEV) StoreDevtoolsService.exposeToWindow();
         let deviceId = sys.localStorage.getItem('deviceId');
 
         if (!deviceId) {
@@ -44,6 +47,7 @@ export class Bootstrapper extends Component {
         };
         const loginResult = await this.profileStore.guestLogin(loginDto);
         if (!loginResult) return console.error("Ошибка при попытке входа гостя!");
+
         const user = await this.profileStore.getFullProfile();
         if (!user) return console.error("Ошибка при загрузке профиля после входа!");
 
@@ -51,7 +55,9 @@ export class Bootstrapper extends Component {
         configStore.applyCachedConfig();
         this.updateStatus("Синхронизация конфигурации...");
         await configStore.syncConfig();
-        this.selectStartVanguard(user.needsInitialSelection);
+
+        const loadout = await this.loadoutStore.fetchLoadout();
+        this.selectStartVanguard(!loadout);
     }
 
     private async selectStartVanguard(needsSelection: boolean) {
@@ -62,43 +68,44 @@ export class Bootstrapper extends Component {
                 isConfirm: true,
                 header: "ВЫБЕРИТЕ АВАНГАРД",
                 component: this.vanguardSelectionPrefab,
-                dialogOptions:{
+                dialogOptions: {
                     closable: false,
                     height: 950,
                     width: 800,
                 }
             });
             console.log("Выбранный авангард:", selectedVanguard);
-            if(selectedVanguard){
+            if (selectedVanguard) {
                 const res = await this.profileStore.setStartVanguard(selectedVanguard.id);
-                if(res){
+                if (res) {
+                    await this.loadoutStore.fetchLoadout();
                     this.updateStatus("Доступ разрешен!");
                     this.proceedToLobby();
                 }
             }
-
-        }else{
+        } else {
             this.updateStatus("Доступ разрешен!");
             this.proceedToLobby();
         }
     }
 
-     private async proceedToLobby() {
-        const user = useProfileStore().user.value;
-        if (ColyseusManager.instance) {
-                await ColyseusManager.instance.connectToLobby({
-                    id: user.id,
-                    nickname: user.nickname,
-                    vanguardId: user.activeVanguard.id,
-                    vanguardKey: user.activeVanguard.vanguard.name
-                });
-            }
+    private async proceedToLobby() {
+        const user = this.profileStore.user.value;
+        const loadout = this.loadoutStore.loadout.value;
+
+        if (ColyseusManager.instance && user && loadout) {
+            await ColyseusManager.instance.connectToLobby({
+                id: user.id,
+                nickname: user.nickname,
+                vanguardId: loadout.id,
+                vanguardKey: loadout.vanguardName
+            });
+        }
         this.updateStatus("Загрузка штаба...");
         director.loadScene('ResourceLoader');
     }
 
     private generateUUID(): string {
-        // Простой генератор для dev-режима
         return 'dev_' + Math.random().toString(36).substring(2, 11);
     }
 }

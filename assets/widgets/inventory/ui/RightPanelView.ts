@@ -1,6 +1,6 @@
 import { _decorator, Component, Node, Label, Prefab, instantiate } from 'cc';
 import { watch } from 'db://assets/shared/infra/reactivity';
-import { useInventoryStore } from 'db://assets/entities/module/model/inventory.store';
+import { useInventoryStore } from 'db://assets/entities/inventory/model/inventory.store';
 import { UserModule } from 'db://assets/entities/module/model/classess/module';
 import { ProtocolEnt } from 'db://assets/entities/protocols/model/classess/protocol.ent';
 import { ProtocolSelectItem } from 'db://assets/feature/protocol-select-item/ui/ProtocolSelectItem';
